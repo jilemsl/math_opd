@@ -1,0 +1,58 @@
+{
+  "n_rollouts": 200,
+  "beta": 1.0,
+  "student": "Qwen/Qwen3-1.7B",
+  "teacher": "Qwen/Qwen3-4B-Instruct-2507",
+  "total_tokens": 289597,
+  "arms": {
+    "v0": {
+      "retention": 0.6380314713204902,
+      "gradient_mass_coverage": 0.3482532644670691,
+      "mass_per_token_ratio": 0.5458245872203029
+    },
+    "v1": {
+      "retention": 0.5531790729876346,
+      "gradient_mass_coverage": 0.27923078487457403,
+      "mass_per_token_ratio": 0.5047746715480247
+    },
+    "v0ms": {
+      "retention": 0.6092328304505917,
+      "gradient_mass_coverage": 0.3259097607337923,
+      "mass_per_token_ratio": 0.5349510801851367
+    },
+    "v2": {
+      "retention": 0.18703577730432291,
+      "gradient_mass_coverage": 0.0775008359521219,
+      "mass_per_token_ratio": 0.41436369591482775
+    },
+    "entropy": {
+      "retention": 0.6380314713204902,
+      "gradient_mass_coverage": 0.9423969352979669,
+      "mass_per_token_ratio": 1.477038324375367
+    },
+    "random": {
+      "retention": 0.6380314713204902,
+      "gradient_mass_coverage": 0.5471328127214843,
+      "mass_per_token_ratio": 0.857532641123675
+    }
+  },
+  "jaccard_with_entropy_topk": {
+    "v0": 0.3227319681106911,
+    "v1": 0.2816738515227842,
+    "v0ms": 0.3078964073076884,
+    "v2": 0.10636538202211757
+  },
+  "dear_reference": {
+    "entropy": 0.391,
+    "random": 0.359
+  },
+  "rollouts": "200 untrained-student rollouts, DAPO-Math-17k (en), the Phase 0 gate set",
+  "interpretation": {
+    "headline": "The lexical masks capture disproportionately LITTLE gradient mass, not disproportionately much. Every variant has a mass/token ratio below 1 (v0 0.546, v1 0.505, v0ms 0.535, v2 0.414): v0 spends 63.8% of the token budget to capture 34.8% of the divergence the trainer reduces.",
+    "random_beats_them": "A budget-matched random mask captures 54.7% (ratio 0.858) against v0's 34.8%. Since random-stratified reproduces v0's own positional profile, the gap is not positional -- within the same positions, the lexical criterion actively selects lower-mass tokens.",
+    "why": "Digits and operators inside LaTeX are among the most predictable tokens in a derivation. Once the student has emitted `\\\\frac{1}{`, the `2}` is nearly determined, teacher and student agree, and the divergence is small. The mass sits in the reasoning prose where the two models actually disagree.",
+    "not_an_entropy_proxy": "Jaccard overlap with budget-matched entropy top-k is only 0.28-0.32 (v2: 0.11), so the lexical masks are not a zero-cost approximation of entropy selection. They select something genuinely different -- which turns out to be the low-divergence half.",
+    "dear_comparability": "DEAR's quoted 39.1% (entropy) and 35.9% (random) are coverages at DEAR's budget, which is not stated here, so they cannot be compared to our coverages directly. The budget-independent quantity is the mass/token ratio; ours are entropy 1.477 and random 0.858. Report ratios, or re-measure at DEAR's budget.",
+    "consequence": "This is a pre-registered prediction for Phase 3 rather than a post-hoc excuse: if v0 trains on the tokens the teacher and student already agree on, it should underperform vanilla and its budget-matched random control. A null or negative accuracy result would then be mechanistically explained rather than merely observed."
+  }
+}

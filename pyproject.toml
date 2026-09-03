@@ -169,6 +169,10 @@ select = ["E", "F", "I", "W", "UP", "B", "T", "C"]
 "scripts/**.py" = ["T201"]
 "trl/cli/**.py" = ["T201"]
 "math_opd/probe/**.py" = ["T201"]
+"math_opd/train/rollout.py" = ["T201"]
+"math_opd/train/score.py" = ["T201"]
+"math_opd/train/loop.py" = ["T201"]
+"math_opd/eval/**.py" = ["T201"]
 # Ignore import violations in all `__init__.py` files.
 "__init__.py" = ["F401"]
 

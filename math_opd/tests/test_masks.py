@@ -128,6 +128,15 @@ def test_v1_drops_first_atomic_unit_whole_not_first_token():
     assert covered_text(text, [(min(dropped), max(dropped) + 1)]) == "12", "both digits of `12` must go"
 
 
+def test_v1_drops_padding_before_the_entry_unit():
+    """A delimited interior keeps its whitespace, so removing only the unit's own
+    range would leave the space in front of it in the mask -- and the tokenizer
+    glues that space to the entry token, re-selecting what v1 exists to drop."""
+    text = "so the value is $ x $ here"
+    kept = char_set(variant_char_ranges(text, "v1"))
+    assert not (kept & char_set([(16, 19)])), "neither `x` nor the space before it may survive v1"
+
+
 def test_v1_and_v0ms_are_subsets_of_v0():
     text = r"We get $x = 12.5$ and f(x) = 3x + 2 with 7 cases and \[y=1\]."
     v0 = char_set(variant_char_ranges(text, "v0"))

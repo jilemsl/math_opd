@@ -1,0 +1,94 @@
+{
+  "gate": "pilot: 2 arms x 1 seed at full spec size (5,000 prompts x G=4, 625 steps)",
+  "accuracy": {
+    "base": {
+      "math500": 0.699,
+      "amc23": 0.4297
+    },
+    "vanilla": {
+      "math500": 0.7065,
+      "amc23": 0.468
+    },
+    "v0": {
+      "math500": 0.694,
+      "amc23": 0.4672
+    }
+  },
+  "paired_bootstrap": {
+    "v0_vs_vanilla": {
+      "amc23": {
+        "acc_a": 0.46796875,
+        "acc_b": 0.4671875,
+        "delta": -0.0007812500000000111,
+        "ci95": [
+          -0.03828125,
+          0.0375
+        ],
+        "p_two_sided": 0.9636,
+        "n_problems": 40
+      },
+      "math500": {
+        "acc_a": 0.7065,
+        "acc_b": 0.694,
+        "delta": -0.012500000000000067,
+        "ci95": [
+          -0.0355,
+          0.0095
+        ],
+        "p_two_sided": 0.274,
+        "n_problems": 500
+      }
+    },
+    "vanilla_vs_base": {
+      "amc23": {
+        "acc_a": 0.4296875,
+        "acc_b": 0.46796875,
+        "delta": 0.03828124999999999,
+        "ci95": [
+          -0.01796875,
+          0.09533203124999971
+        ],
+        "p_two_sided": 0.1882,
+        "n_problems": 40
+      },
+      "math500": {
+        "acc_a": 0.699,
+        "acc_b": 0.7065,
+        "delta": 0.007500000000000062,
+        "ci95": [
+          -0.0155,
+          0.031
+        ],
+        "p_two_sided": 0.526,
+        "n_problems": 500
+      }
+    },
+    "v0_vs_base": {
+      "amc23": {
+        "acc_a": 0.4296875,
+        "acc_b": 0.4671875,
+        "delta": 0.03749999999999998,
+        "ci95": [
+          -0.003125,
+          0.0796875
+        ],
+        "p_two_sided": 0.0738,
+        "n_problems": 40
+      },
+      "math500": {
+        "acc_a": 0.699,
+        "acc_b": 0.694,
+        "delta": -0.0050000000000000044,
+        "ci95": [
+          -0.0285,
+          0.0185
+        ],
+        "p_two_sided": 0.6986,
+        "n_problems": 500
+      }
+    }
+  },
+  "finding": "Nothing is statistically significant. v0 does not beat vanilla (AMC23 p=0.964, MATH500 p=0.274), which is the outcome the gradient-mass probe predicted. But the stronger and more consequential result is that vanilla OPD does not significantly beat the untrained student either (AMC23 +0.038 p=0.188, MATH500 +0.008 p=0.526). There is no effect to divide between arms.",
+  "why_underpowered": "The teacher-student gap is too narrow to produce a measurable improvement. The spec's own scope statement flags 4B->1.7B as narrow; the pilot shows it is not merely narrow but below the resolution of these benchmarks at this training scale. More steps will not fix it: both arms' loss plateaued by the second quintile (vanilla .373->.325, v0 .207->.178) with grad norm falling, so the models had stopped moving well before step 625.",
+  "consequence_for_phase3": "Running 8 arms x 3 seeds at 441+ GPU-hours would almost certainly return all-null differences, and the nulls would be uninterpretable: indistinguishable from 'the masks do not matter' AND from 'OPD did not train'. The pilot cost 51 GPU-hours and prevented that."
+}

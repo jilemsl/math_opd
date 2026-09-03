@@ -124,6 +124,13 @@ def variant_char_ranges(text: str, variant: str) -> list[tuple[int, int]]:
         for s in spans:
             if not s.units:
                 continue
-            out.extend(_subtract(s.kept, [s.units[0]]))
+            # Subtract from the span's start, not just the unit's own range. A
+            # delimited span keeps its interior wholesale, so removing only the
+            # unit leaves the whitespace in front of it in the mask -- and Qwen3
+            # emits that space glued to the following token (` x`), which then
+            # overlaps and is selected. v1 would keep the very entry token it
+            # exists to drop. Run spans start at their first unit, so they are
+            # unaffected.
+            out.extend(_subtract(s.kept, [(s.start, s.units[0][1])]))
         return out
     raise ValueError(f"unknown variant {variant!r}; expected one of {VARIANTS}")

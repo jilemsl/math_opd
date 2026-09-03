@@ -1,0 +1,67 @@
+{
+  "purpose": "size the Phase 3 GPU budget before committing ~24 runs",
+  "hardware": "srv07, RTX A6000 48GB, AMD EPYC 7543",
+  "workload": "400 DAPO-Math-17K (en) prompts, Qwen3-1.7B non-thinking, T=1.0 top_p=1.0, max 4096 tok",
+  "note": "times llm.generate only; engine startup (63-153s) excluded as it amortises over a real run",
+  "configs": {
+    "dp1": {
+      "gpus": 1,
+      "agg_tok_per_s": 3630,
+      "speedup": 1.0,
+      "efficiency": 1.0,
+      "gen_wall_s": 161.6
+    },
+    "dp2": {
+      "gpus": 2,
+      "agg_tok_per_s": 6724,
+      "speedup": 1.85,
+      "efficiency": 0.93,
+      "gen_wall_s": 90.4
+    },
+    "dp4": {
+      "gpus": 4,
+      "agg_tok_per_s": 10367,
+      "speedup": 2.86,
+      "efficiency": 0.71,
+      "gen_wall_s": 58.1
+    },
+    "tp4": {
+      "gpus": 4,
+      "agg_tok_per_s": 1201,
+      "speedup": 0.33,
+      "efficiency": 0.08,
+      "gen_wall_s": 506.0
+    },
+    "tp2": {
+      "gpus": 2,
+      "result": "FAILED",
+      "reason": "gloo rendezvous timeout, killed at 900s cap"
+    }
+  },
+  "findings": [
+    "Tensor parallelism is actively harmful for a 1.7B model. TP=4 runs at 1,201 tok/s -- 3x SLOWER than a single GPU and 8.6x slower than 4-way data parallel. The model is 3.4GB in bf16 on a 48GB card, so TP splits work that was never too big and pays an all-reduce every layer. TP=2 would not even initialise.",
+    "Data parallelism (N independent vLLM instances, one GPU each, prompts sharded) is the right mode: 1.85x at 2 GPUs, 2.86x at 4.",
+    "The DP=4 efficiency of 71% is partly a benchmark artifact: total work is fixed at 400 prompts, so each instance gets only 100 and spends a larger share of its wall time draining the long tail. One 4,096-token generation finishing alone floors the wall time regardless of GPU count. At Phase 3 scale (5,000 prompts per instance) the tail amortises and DP should scale closer to linear.",
+    "Multi-GPU on this cluster needs GLOO_SOCKET_IFNAME=lo / NCCL_SOCKET_IFNAME=lo. The nodes carry four interfaces (lo, enp194s0f0, wt0, docker0) and gloo otherwise picks a routed one, then blocks for its full 1800s rendezvous timeout."
+  ],
+  "phase3_generation_sizing": {
+    "tokens_per_arm": 30080000,
+    "basis": "5,000 prompts x G=4 x 1,504 mean tokens",
+    "dp1": {
+      "hours_per_arm": 2.3,
+      "wall_h_24_runs": 55,
+      "gpu_hours_24_runs": 55
+    },
+    "dp2": {
+      "hours_per_arm": 1.24,
+      "wall_h_24_runs": 30,
+      "gpu_hours_24_runs": 60
+    },
+    "dp4": {
+      "hours_per_arm": 0.81,
+      "wall_h_24_runs": 19,
+      "gpu_hours_24_runs": 77
+    },
+    "comment": "The spec budgeted ~1 GPU-h/arm for generation; the measured figure is 2.3 GPU-h at DP=1. More GPUs buy wall-clock, not total GPU-hours -- DP=4 finishes 2.9x sooner but burns 40% more GPU-hours than DP=1."
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "a": "/shared/gilles/scratch/math_opd/lrprobe/lr3e5/checkpoint-120",
+  "b": "/shared/gilles/scratch/math_opd/lrprobe/v0_lr3e5/checkpoint-120",
+  "benchmarks": {
+    "amc23": {
+      "acc_a": 0.49609375,
+      "acc_b": 0.48125,
+      "delta": -0.014843749999999989,
+      "ci95": [
+        -0.06015625,
+        0.02109375
+      ],
+      "p_two_sided": 0.5082,
+      "n_problems": 40
+    },
+    "math500": {
+      "acc_a": 0.71,
+      "acc_b": 0.738,
+      "delta": 0.028000000000000025,
+      "ci95": [
+        0.01,
+        0.04701249999999982
+      ],
+      "p_two_sided": 0.0018,
+      "n_problems": 500
+    }
+  }
+}

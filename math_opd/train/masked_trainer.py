@@ -16,6 +16,11 @@ from trl import DistillationConfig, DistillationTrainer
 from .mask_utils import ARMS, LEXICAL_ARMS, SCORED_ARMS, baseline_batch_mask, lexical_batch_mask, retention
 
 
+#: Positions per `lm_head` call in the scoring pass, mirroring the trainer's
+#: chunked loss so peak memory does not scale with sequence length.
+_SCORE_CHUNK = 512
+
+
 class MaskedDistillationConfig(DistillationConfig):
     """`DistillationConfig` plus the arm selector.
 
@@ -59,16 +64,43 @@ class MaskedDistillationTrainer(DistillationTrainer):
         self.mask_seed = self.args.mask_seed
         self.normalize_by_selected = self.args.normalize_by_selected
 
-    def _selection_scores(self, inputs: torch.Tensor) -> torch.Tensor:
-        """Per-token entropy / teacher-student KL, for the scored baselines.
+    def _selection_scores(self, inputs: dict) -> torch.Tensor:
+        """Per-token student entropy (`entropy`) or teacher-student KL (`kl`).
 
         Deliberately a separate no-grad pass. Folding it into the training
         forward would hide the cost these baselines incur and that the lexical
-        arms avoid.
+        arms avoid: both must project *every* position to the vocabulary before
+        they can choose any, which is exactly the asymmetry being measured.
+
+        The projection is chunked over positions for the same reason
+        `_chunked_divergence_loss` is -- the full `(B, T, V)` logits are never
+        materialized.
         """
-        raise NotImplementedError(
-            "entropy/kl arms need a scoring pass; implement in Phase 3 once Phase 0 numbers are reviewed"
-        )
+        input_ids = torch.cat([inputs["prompt_ids"], inputs["completion_ids"]], dim=1)
+        attention_mask = torch.cat([inputs["prompt_mask"], inputs["completion_mask"]], dim=1)
+        logits_to_keep = inputs["completion_ids"].size(1)
+
+        student = self.accelerator.unwrap_model(self.model)
+        with torch.no_grad():
+            hidden = self._get_last_hidden_state(student, input_ids, attention_mask, logits_to_keep)
+            head = student.get_output_embeddings()
+            if self.arm == "kl":
+                self.teacher_model.eval()
+                teacher = self.accelerator.unwrap_model(self.teacher_model)
+                t_hidden = self._get_last_hidden_state(teacher, input_ids, attention_mask, logits_to_keep)
+                t_head = teacher.get_output_embeddings()
+
+            scores = torch.empty(hidden.shape[:2], device=hidden.device, dtype=torch.float32)
+            for start in range(0, hidden.size(1), _SCORE_CHUNK):
+                sl = slice(start, start + _SCORE_CHUNK)
+                s_logp = torch.log_softmax(head(hidden[:, sl]).float(), dim=-1)
+                if self.arm == "entropy":
+                    scores[:, sl] = -(s_logp.exp() * s_logp).sum(-1)
+                else:
+                    # KL(teacher || student), matching `token_kl` in baselines.py.
+                    t_logp = torch.log_softmax(t_head(t_hidden[:, sl]).float(), dim=-1)
+                    scores[:, sl] = (t_logp.exp() * (t_logp - s_logp)).sum(-1)
+        return scores
 
     def _arm_mask(self, inputs: dict) -> torch.Tensor | None:
         """The arm's `(B, T)` mask over completion tokens, or None for vanilla."""
