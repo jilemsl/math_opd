@@ -1,0 +1,35 @@
+{
+  "gate": "100 prompts end-to-end",
+  "passed": true,
+  "rollout": {
+    "n_prompts": 100,
+    "seed": 1,
+    "wall_s": 563,
+    "mean_response_tokens": 1725,
+    "clipped_at_4096": 6,
+    "note": "includes ~200s vLLM startup; measured at low concurrency (100 prompts), not a throughput benchmark"
+  },
+  "scoring": {
+    "teacher": "Qwen/Qwen3-4B-Instruct-2507",
+    "device": "1x RTX A6000",
+    "completion_tokens": 172450,
+    "scored_positions": 110285,
+    "union_retention": 0.6395,
+    "wall_s": 48.44,
+    "backbone_s": 21.59,
+    "projection_masked_s": 1.85,
+    "projection_full_s": 2.84,
+    "backbone_share_of_pass": 0.8837,
+    "projection_share_of_pass": 0.1163,
+    "measured_saving_at_union_retention": 0.0406
+  },
+  "teacher_pass_saving_by_arm": {
+    "v0": 0.0419,
+    "v0ms": 0.0448,
+    "v1": 0.0511,
+    "v2": 0.0942,
+    "ceiling_zero_retention": 0.1163
+  },
+  "finding": "The teacher forward cannot be restricted to masked positions -- only its lm_head projection can, because a causal backbone must run over every position to produce any position's hidden state. For Qwen3-4B (hidden 2560, vocab 151936) that projection is 11.6% of the teacher pass, which is a hard ceiling on the secondary claim: a mask selecting nothing at all would save 11.6%. v0 saves 4.2%, v2 saves 9.4%. The entropy/kl baselines save 0% because they must project everything before they can select, so the advantage is real but bounded at single-digit percentages of the teacher pass.",
+  "cache_design_tension": "The spec asks both to 'score masked positions only' and to 'cache log-probs over the full span' so boundary policy stays post-hoc. These conflict: the union of all four variants has retention 0.6395, indistinguishable from v0's 0.6394 (v2's spans sit almost entirely inside v0's, since relational triggers mostly occur within delimited interiors that v0 keeps wholesale). One shared cache therefore serves v0/v1/v0ms for free but charges v2 v0's price, cutting its saving from 9.4% to 4.2%."
+}

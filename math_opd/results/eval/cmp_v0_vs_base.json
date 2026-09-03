@@ -1,0 +1,28 @@
+{
+  "a": "Qwen/Qwen3-1.7B",
+  "b": "/shared/gilles/scratch/math_opd/pilot/v0/checkpoint-625",
+  "benchmarks": {
+    "amc23": {
+      "acc_a": 0.4296875,
+      "acc_b": 0.4671875,
+      "delta": 0.03749999999999998,
+      "ci95": [
+        -0.003125,
+        0.0796875
+      ],
+      "p_two_sided": 0.0738,
+      "n_problems": 40
+    },
+    "math500": {
+      "acc_a": 0.699,
+      "acc_b": 0.694,
+      "delta": -0.0050000000000000044,
+      "ci95": [
+        -0.0285,
+        0.0185
+      ],
+      "p_two_sided": 0.6986,
+      "n_problems": 500
+    }
+  }
+}

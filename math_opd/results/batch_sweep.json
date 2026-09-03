@@ -1,0 +1,45 @@
+{
+  "purpose": "the Phase 2 config costs 6.8x the spec's Phase 3 budget; find how much is batch-size waste",
+  "setup": "v0, 3 steps, 4096 completion length, 1x A6000, colocate vLLM at 0.25",
+  "configs": [
+    {
+      "per_device_train_batch_size": 2,
+      "gradient_accumulation_steps": 4,
+      "rollouts_per_step": 8,
+      "step_s": 48.6,
+      "s_per_rollout": 6.08,
+      "mask_retention": 0.6268
+    },
+    {
+      "per_device_train_batch_size": 4,
+      "gradient_accumulation_steps": 8,
+      "rollouts_per_step": 32,
+      "step_s": 123.9,
+      "s_per_rollout": 3.87,
+      "mask_retention": 0.6369
+    },
+    {
+      "per_device_train_batch_size": 8,
+      "gradient_accumulation_steps": 8,
+      "rollouts_per_step": 64,
+      "step_s": 224.0,
+      "s_per_rollout": 3.5,
+      "mask_retention": 0.6203
+    },
+    {
+      "per_device_train_batch_size": 8,
+      "gradient_accumulation_steps": 16,
+      "rollouts_per_step": 128,
+      "step_s": 423.4,
+      "s_per_rollout": 3.31,
+      "mask_retention": 0.626
+    }
+  ],
+  "findings": [
+    "Batching is worth 1.84x at best and the curve is flat past 64 rollouts/step: 6.08 -> 3.87 -> 3.50 -> 3.31 s/rollout. It cannot close a 6.8x gap on its own.",
+    "Mask retention is invariant to batch size (0.6203-0.6369, all within 1.8% of Phase 0's 0.6318), so the choice is purely about compute, not about what the mask selects.",
+    "Batch size trades throughput against optimizer steps at fixed budget, and that is a training-dynamics decision rather than an engineering one. At 5 GPU-h/arm: 8 rollouts/step buys 370 steps over 2,961 rollouts; 64 rollouts/step buys only 80 steps over 5,143 rollouts. More data, fewer updates.",
+    "No configuration reaches the spec's ~2 h/arm. The full 20,000-rollout arm costs 18.4 h at best, so 8 arms x 3 seeds is 441 GPU-hours minimum against a 120 GPU-h budget."
+  ],
+  "note": "measured over 3 steps per config; step_time excludes model load but includes generation, teacher forward, and student forward/backward."
+}

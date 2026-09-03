@@ -1,0 +1,126 @@
+{
+  "design": "120 steps, constant LR, 32 rollouts/step, 4096 tokens, 1 seed. vanilla and v0 matched on rate, batch, schedule, data order.",
+  "accuracy": {
+    "base": {
+      "math500": 0.699,
+      "amc23": 0.4297
+    },
+    "lr1e6": {
+      "math500": 0.7185,
+      "amc23": 0.4453
+    },
+    "lr3e6": {
+      "math500": 0.7565,
+      "amc23": 0.4664
+    },
+    "lr1e5": {
+      "math500": 0.726,
+      "amc23": 0.4875
+    },
+    "lr3e5": {
+      "math500": 0.71,
+      "amc23": 0.4961
+    },
+    "v0_lr3e6": {
+      "math500": 0.752,
+      "amc23": 0.4852
+    },
+    "v0_lr1e5": {
+      "math500": 0.759,
+      "amc23": 0.4984
+    },
+    "v0_lr3e5": {
+      "math500": 0.738,
+      "amc23": 0.4813
+    }
+  },
+  "clipped_at_4096": {
+    "lr3e6": 0.544,
+    "v0_lr3e6": 0.438,
+    "lr1e5": 0.584,
+    "v0_lr1e5": 0.569,
+    "lr3e5": 0.613,
+    "v0_lr3e5": 0.613
+  },
+  "v0_vs_vanilla_matched": {
+    "3e-6": {
+      "amc23": {
+        "acc_a": 0.46640625,
+        "acc_b": 0.48515625,
+        "delta": 0.01874999999999999,
+        "ci95": [
+          -0.01484375,
+          0.05314453124999972
+        ],
+        "p_two_sided": 0.2924,
+        "n_problems": 40
+      },
+      "math500": {
+        "acc_a": 0.7565,
+        "acc_b": 0.752,
+        "delta": -0.0044999999999999485,
+        "ci95": [
+          -0.0245,
+          0.016
+        ],
+        "p_two_sided": 0.6832,
+        "n_problems": 500
+      }
+    },
+    "1e-5": {
+      "amc23": {
+        "acc_a": 0.4875,
+        "acc_b": 0.4984375,
+        "delta": 0.010937499999999989,
+        "ci95": [
+          -0.01640625,
+          0.03828125
+        ],
+        "p_two_sided": 0.441,
+        "n_problems": 40
+      },
+      "math500": {
+        "acc_a": 0.726,
+        "acc_b": 0.759,
+        "delta": 0.03300000000000003,
+        "ci95": [
+          0.014,
+          0.052
+        ],
+        "p_two_sided": 0.0006,
+        "n_problems": 500
+      }
+    },
+    "3e-5": {
+      "amc23": {
+        "acc_a": 0.49609375,
+        "acc_b": 0.48125,
+        "delta": -0.014843749999999989,
+        "ci95": [
+          -0.06015625,
+          0.02109375
+        ],
+        "p_two_sided": 0.5082,
+        "n_problems": 40
+      },
+      "math500": {
+        "acc_a": 0.71,
+        "acc_b": 0.738,
+        "delta": 0.028000000000000025,
+        "ci95": [
+          0.01,
+          0.04701249999999982
+        ],
+        "p_two_sided": 0.0018,
+        "n_problems": 500
+      }
+    }
+  },
+  "findings": [
+    "The pilot's null was undertraining, not an exhausted teacher-student gap. 120 steps at 3e-6 beats 625 steps at 1e-6 decay on both benchmarks (MATH500 0.7565 vs 0.7065), and clears significance against base (+0.0575, p=0.000) where the pilot did not (p=0.526).",
+    "v0 beats vanilla on MATH500 at matched learning rate at 1e-5 (+0.033, p=0.001) and 3e-5 (+0.028, p=0.002), but not at 3e-6 (-0.005, p=0.683). AMC23 shows no consistent effect at any rate (p=0.29, 0.44, 0.51); with 40 problems its CIs span about +/-0.05.",
+    "Best-vs-best is a tie: v0's best (0.7590 at 1e-5) against vanilla's best (0.7565 at 3e-6) is +0.0025, p=0.805. The mask does not raise the ceiling; it makes the ceiling reachable across a wider band of learning rates.",
+    "This contradicts the gradient-mass prediction, which said v0 should underperform. The likely mechanism is not gradient mass but length regularization: vanilla's MATH500 accuracy falls monotonically as clipping rises across its own LR sweep (0.7565/0.7260/0.7100 at clip 0.544/0.584/0.613), and v0 inflates less than vanilla at 3e-6 (0.438 vs 0.544) and 1e-5 (0.569 vs 0.584). Withholding gradient from prose appears to damp the verbosity that costs accuracy. Note this explanation is incomplete: at 3e-5 both clip at 0.613 and v0 still wins by +0.028."
+  ],
+  "caveats": "Single seed at each point; the spec requires 3. MATH500 (500 problems) carries the signal; AMC23 (40) does not resolve these differences."
+}

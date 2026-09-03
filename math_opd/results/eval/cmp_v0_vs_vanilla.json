@@ -1,0 +1,28 @@
+{
+  "a": "/shared/gilles/scratch/math_opd/pilot/vanilla/checkpoint-625",
+  "b": "/shared/gilles/scratch/math_opd/pilot/v0/checkpoint-625",
+  "benchmarks": {
+    "amc23": {
+      "acc_a": 0.46796875,
+      "acc_b": 0.4671875,
+      "delta": -0.0007812500000000111,
+      "ci95": [
+        -0.03828125,
+        0.0375
+      ],
+      "p_two_sided": 0.9636,
+      "n_problems": 40
+    },
+    "math500": {
+      "acc_a": 0.7065,
+      "acc_b": 0.694,
+      "delta": -0.012500000000000067,
+      "ci95": [
+        -0.0355,
+        0.0095
+      ],
+      "p_two_sided": 0.274,
+      "n_problems": 500
+    }
+  }
+}

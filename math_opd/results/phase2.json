@@ -1,0 +1,72 @@
+{
+  "gate": "loss curves sane, no NaN; v0 + vanilla only",
+  "passed": true,
+  "setup": {
+    "student": "Qwen/Qwen3-1.7B (non-thinking)",
+    "teacher": "Qwen/Qwen3-4B-Instruct-2507",
+    "device": "1x RTX A6000",
+    "max_completion_length": 4096,
+    "per_device_train_batch_size": 2,
+    "gradient_accumulation_steps": 4,
+    "optim": "adamw_bnb_8bit",
+    "gradient_checkpointing": true,
+    "vllm_mode": "colocate",
+    "vllm_gpu_memory_utilization": 0.25,
+    "learning_rate": 1e-06,
+    "steps": 20
+  },
+  "arms": {
+    "vanilla": {
+      "loss_first": 0.41003769636154175,
+      "loss_last": 0.3900512754917145,
+      "loss_min": 0.34684211015701294,
+      "loss_max": 0.49417543411254883,
+      "any_nan": false,
+      "step_time_median_s": 44.5,
+      "mask_retention_mean": null
+    },
+    "v0": {
+      "loss_first": 0.23544004559516907,
+      "loss_last": 0.2551824152469635,
+      "loss_min": 0.16182684898376465,
+      "loss_max": 0.27317163348197937,
+      "any_nan": false,
+      "step_time_median_s": 40.8,
+      "mask_retention_mean": 0.6085
+    }
+  },
+  "retention_cross_check": "v0 logs mask_retention 0.6085 in training against 0.6318 measured offline in Phase 0 -- 3.7% apart, the residual being the ~3% of rollouts still clipped at 4,096. This check is what caught the thinking-mode bug: Qwen3's chat template defaults to thinking mode, and without chat_template_kwargs={'enable_thinking': False} the student emitted prose-heavy reasoning traces whose v0 retention was 0.2365 -- 59% off what Phase 0's positional histogram predicts for that window, versus 3.7% once fixed.",
+  "cost_warning": "At this configuration a Phase 3 arm costs 28.3 h (2,500 steps x 40.8 s for 5,000 prompts x G=4), so 8 arms x 3 seeds is ~680 GPU-hours against the spec's ~120. Only 8 rollouts are generated per optimizer step, which runs vLLM far below the concurrency that reached 3,630 tok/s and leaves the training forward/backward at roughly 16% MFU. See results/batch_sweep.json.",
+  "all_arms_verified": {
+    "note": "3 steps each, 512-token completions, budget-matched baselines. Confirms every arm runs and that the loss ordering independently reproduces the offline gradient-mass probe.",
+    "loss_by_arm": {
+      "v0": 0.283,
+      "random": 0.352,
+      "vanilla": 0.412,
+      "entropy": 0.673,
+      "kl": 0.775
+    },
+    "retention_by_arm": {
+      "v0": 0.5496,
+      "random": 0.543,
+      "vanilla": 1.0,
+      "entropy": 0.5673,
+      "kl": 0.5592
+    },
+    "implied_mass_share": {
+      "v0": 0.378,
+      "random": 0.464,
+      "vanilla": 1.0,
+      "entropy": 0.927,
+      "kl": 1.052
+    },
+    "probe_mass_share": {
+      "v0": 0.348,
+      "random": 0.547,
+      "vanilla": 1.0,
+      "entropy": 0.942
+    },
+    "cross_validation": "The training loss is mean divergence over selected tokens once normalize_by_selected has rescaled it, so retention x loss/vanilla_loss estimates the mass share. Those estimates (v0 0.378, random 0.464, entropy 0.926) track the offline probe's (0.348, 0.547, 0.942) despite coming from different code, different loaded models, and separately generated rollouts. The ordering v0 < random < vanilla < entropy < kl holds in both.",
+    "budget_matching_works": "every baseline hit v0's exact 0.5615 retention on its first step, across independent runs"
+  }
+}
