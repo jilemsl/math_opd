@@ -98,8 +98,8 @@ projection, so this saving is in the baseline trainer, not added by this work.
 
 | model | AIME24 | AIME25 | AIME26 |
 |---|---|---|---|
-| base | 0.1073 | 0.0854 | — |
-| van3e6 | 0.1844 | — | — |
+| base | 0.1073 | 0.0854 | 0.0740 |
+| van3e6 | 0.1844 | 0.1625 | 0.1406 |
 | v03e6 | 0.1958 | — | — |
 | van1e5 | 0.1729 | 0.1854 | 0.1490 |
 | v01e5 | 0.1635 | 0.1635 | — |
@@ -109,6 +109,42 @@ year gives 95% CIs of roughly ±0.10 — wide enough to contain both zero and th
 +0.03 effect MATH500 resolves. Training clearly lifts AIME over base
 (0.107 → 0.16–0.20 on AIME24), but the v0-vs-vanilla ordering is inconsistent
 across years and should not be read as signal.
+
+## 6b. Seed noise floor — is any of this real?
+
+`results/seed_noise.json`. Plain OPD, 3e-6, 120 steps, run three times with different
+seeds (seed varies both the prompt sample and training randomness).
+
+| seed | MATH500 |
+|---|---|
+| 0 | 0.7565 |
+| 1 | 0.7665 |
+| 2 | 0.7510 |
+| mean | 0.7580 |
+| **SD** | **0.0079** |
+
+Minimum detectable difference at 80% power: **3 seeds → 0.018**, 5 → 0.014, 8 → 0.011,
+12 → 0.009.
+
+The measured effects (0.028, 0.033) are ~4x the seed SD and clear the 3-seed
+threshold. **They are not run-to-run noise.** Two corollaries:
+
+- The tie at 3e-6 (−0.0045) is inside one SD — a genuine null, not an undertuned
+  baseline.
+- Best-vs-best is a tie against a proper estimate: plain OPD at 3e-6 averages 0.7580
+  over three seeds, v0's best is 0.7590.
+
+Accuracy is far more stable across seeds than training metrics: final-loss SD 0.0067,
+clipped-ratio SD 0.0290. The clipping SD exceeds the whole accuracy effect, so
+single-seed differences in answer length are not evidence of a systematic difference —
+this weakens the length-regularization explanation.
+
+## 6c. Difficulty control
+
+MATH500 labels problems 1–5. Correlation between level and (v0 − plain OPD):
+**+0.015 / −0.027 / +0.044** at 3e-6 / 1e-5 / 3e-5, all 95% CIs containing zero, sign
+inconsistent. At 1e-5 the advantage is largest on the *easiest* problems. The effect
+does not grow with difficulty.
 
 ## 7. Cost model
 

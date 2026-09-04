@@ -298,13 +298,16 @@ rates where plain OPD degrades, v0 degrades less.
 **Not supported:** that the mask reaches a *higher* ceiling. Tuned against tuned, they
 are indistinguishable.
 
-**Partial explanation.** Plain OPD's accuracy falls as its answers get longer and hit
-the cap. v0 inflates less (54% -> 44% cut off at 3e-6). Withholding gradient from prose
-seems to damp the verbosity.
+**A proposed explanation, which does not survive scrutiny.** Plain OPD's accuracy
+falls as its answers get longer and hit the cap, and v0 inflates less (54% -> 44% cut
+off at 3e-6), suggesting the mask damps verbosity by withholding gradient from prose.
 
-**The explanation is incomplete.** At 3e-5 both arms cut off 61% of answers —
-identical — and v0 still wins by 0.028. Something else is contributing and we have not
-identified it.
+But the seed control (slide 20c) shows the clipped-ratio varies by 0.029 across seeds
+of the *same* configuration — larger than the effect itself. A single-seed difference
+of 54% vs 44% is therefore not evidence of a systematic difference. And at 3e-5 both
+arms clip identically at 61% while v0 still wins by 0.028.
+
+**We do not have a mechanism.** The effect is real; the explanation is open.
 
 ---
 
@@ -331,7 +334,7 @@ This saving is in the **baseline**, not added by us.
 
 ---
 
-## 20. Result 6 — harder benchmarks (partial)
+## 20. Result 6 — harder benchmarks cannot resolve this
 
 AIME 2024/2025/2026, 30 problems each, 32 samples per problem.
 
@@ -343,12 +346,71 @@ AIME 2024/2025/2026, 30 problems each, 32 samples per problem.
 | plain @1e-5 | 0.173 | 0.185 | 0.149 |
 | v0 @1e-5 | 0.164 | 0.164 | — |
 
-**Underpowered, as expected.** With 30 problems, a 95% interval is roughly +/-0.10 —
-wide enough to contain both zero and the effect MATH500 resolves. Training clearly
-helps (0.107 -> 0.16-0.20); the v0-vs-plain ordering flips between years and **should
-not be read as signal**.
+Training clearly helps: 0.107 -> 0.16-0.20 on AIME24.
 
-Runs still in progress; table will be completed.
+**But the benchmark cannot compare the arms, and one row proves it.** `plain @1e-5`
+is a *single model* scored on three years: **0.149 to 0.185, a range of 0.036** —
+larger than the 0.033 difference we are trying to detect. Year-to-year variation of
+one model exceeds the effect size.
+
+Runs were stopped at 12 of 15 cells; the missing cells would not change this.
+
+---
+
+## 20b. A control: does the effect depend on problem difficulty?
+
+MATH500 labels every problem 1-5 for difficulty. If the mask helped by "focusing on
+the maths", its advantage should grow with difficulty.
+
+Correlation between difficulty level and (v0 - plain OPD), per problem:
+
+| learning rate | correlation | 95% CI |
+|---|---|---|
+| 3e-6 | +0.015 | [-0.066, +0.103] |
+| 1e-5 | -0.027 | [-0.119, +0.063] |
+| 3e-5 | +0.044 | [-0.043, +0.129] |
+
+**No trend.** All three intervals contain zero and the sign is inconsistent. At 1e-5
+the advantage is in fact largest on the *easiest* problems (+0.058 at level 1).
+
+This rules out the difficulty explanation and is worth reporting as a control.
+
+## 20c. How much of this is just run-to-run luck?
+
+The single most important control. Same configuration (plain OPD, 3e-6, 120 steps),
+run three times with different random seeds. The seed changes both which problems are
+sampled and the training randomness — i.e. the variance of *repeating the experiment*.
+
+| seed | MATH500 |
+|---|---|
+| 0 | 0.7565 |
+| 1 | 0.7665 |
+| 2 | 0.7510 |
+| **mean** | **0.7580** |
+| **standard deviation** | **0.0079** |
+
+Smallest difference detectable at 80% power:
+
+| seeds per arm | detectable difference |
+|---|---|
+| **3** | **0.018** |
+| 5 | 0.014 |
+| 8 | 0.011 |
+| 12 | 0.009 |
+
+The effects we measured (0.028, 0.033) are **about 4x the seed standard deviation**
+and above the 3-seed threshold. **They are not run-to-run noise.**
+
+Two things this also settles:
+- The tie at 3e-6 (-0.0045) sits well inside one standard deviation. It is a **real
+  null**, not an undertrained baseline.
+- **Best against best is confirmed a tie.** Plain OPD at its best rate averages
+  0.7580 over three seeds; v0's best is 0.7590. A difference of 0.001.
+
+Caveat: accuracy is much more stable across seeds than training metrics. Clipped-ratio
+has a seed SD of 0.029 — *larger than the whole effect* — so single-seed differences
+in answer length are not evidence of anything, which weakens the length explanation
+offered earlier.
 
 ---
 
@@ -386,11 +448,17 @@ Runs still in progress; table will be completed.
 
 ## 23. Summary
 
-1. A regex-chosen token subset **does** match, and at two of three learning rates beat,
-   learning from all tokens — on the one benchmark with enough problems to tell.
-2. It does so **despite** concentrating on *less*-informative tokens than a random
-   subset. The stated hypothesis was wrong, and the working replacement is incomplete.
-3. Best-tuned against best-tuned, the two are **tied**. The honest claim is robustness
-   to learning rate, not a higher ceiling.
-4. The compute advantage is real and **capped at 11.6%**.
-5. All of it is one seed. Replication is the next expense, and it is now affordable.
+1. A regex-chosen token subset **matches** learning from all tokens, and beats it at
+   learning rates above the optimum (+0.033 at 1e-5, +0.028 at 3e-5 on MATH500).
+2. These are **not noise**: a seed control puts run-to-run SD at 0.0079, so the
+   effects are about 4x that, and 3 seeds per arm suffices to establish them.
+3. **At each method's own best learning rate the two are tied** (0.7580 vs 0.7590).
+   The honest claim is robustness to learning rate, not a higher ceiling.
+4. The stated hypothesis — that the free mask concentrates gradient signal — is
+   **false**. It concentrates on *less*-informative tokens than a random subset, and
+   still wins. We have no working mechanism.
+5. The compute advantage is real and **capped at 11.6%**.
+6. Difficulty does not modulate the effect (|r| < 0.05 at all three rates).
+
+**Next:** 2 arms x 3 learning rates x 3 seeds = 18 runs, ~74 GPU-hours, to establish
+the robustness claim properly.
