@@ -269,47 +269,57 @@ that get cut off. **Never select a checkpoint on this loss.**
 
 ---
 
-## 17. Result 4 — the headline comparison
+## 17. Result 4 — the headline comparison (18 runs, 3 seeds per cell)
 
-v0 vs plain OPD, **matched** on learning rate, batch size, schedule and data order.
-120 steps. Significance by resampling problems (paired bootstrap).
+v0 vs plain OPD, matched on learning rate, batch size, schedule and data order.
+120 steps. **Statistics across training runs (seeds), not across problems** — the
+earlier problem-level p-values held the trained model fixed and could not speak to
+reproducibility.
 
-MATH500, 500 problems, 4 samples each:
+MATH500, mean +/- SD over 3 seeds:
 
 | learning rate | plain OPD | v0 | difference | p |
 |---|---|---|---|---|
-| 3e-6 | 0.7565 | 0.7520 | -0.0045 | 0.683 |
-| 1e-5 | 0.7260 | **0.7590** | **+0.0330** | **0.001** |
-| 3e-5 | 0.7100 | **0.7380** | **+0.0280** | **0.002** |
+| 3e-6 | 0.7580 +/- 0.0079 | 0.7492 +/- 0.0049 | -0.0088 | 0.188 |
+| 1e-5 | 0.7363 +/- 0.0090 | 0.7580 +/- 0.0120 | +0.0217 | 0.072 |
+| 3e-5 | 0.7190 +/- 0.0078 | 0.7305 +/- 0.0067 | +0.0115 | 0.127 |
 
-**v0 wins at two of three learning rates** — the opposite of what the gradient-mass
-measurement predicted.
-
-But: **best against best is a tie.** v0's best (0.7590) vs plain OPD's best (0.7565):
-p = 0.805.
+**Nothing is significant.** Pooled across rates the advantage is +0.0081 (p = 0.10).
+Both arms peak at **exactly 0.7580**.
 
 ---
 
-## 18. What that actually licenses us to claim
+## 17b. What one seed got wrong
 
-**Supported:** the mask makes training **less sensitive to the learning rate**. At
-rates where plain OPD degrades, v0 degrades less.
+| | single seed | three seeds |
+|---|---|---|
+| difference at 1e-5 | +0.0330 | +0.0217 |
+| difference at 3e-5 | +0.0280 | +0.0115 |
+| p-values reported | 0.001, 0.002 | 0.072, 0.127 |
 
-**Not supported:** that the mask reaches a *higher* ceiling. Tuned against tuned, they
-are indistinguishable.
+Plain OPD's first seed happened to be **unlucky** at both higher rates; v0's happened
+to be **lucky**. The earlier p-values resampled *problems* with the model held fixed,
+so they measured problem-sampling noise and were silent about run-to-run variance.
 
-**A proposed explanation, which does not survive scrutiny.** Plain OPD's accuracy
-falls as its answers get longer and hit the cap, and v0 inflates less (54% -> 44% cut
-off at 3e-6), suggesting the mask damps verbosity by withholding gradient from prose.
+The 1e-5 p-value moved **0.040 -> 0.072 on one added seed**. Three seeds is fragile
+for differences this size; five or more would be needed.
 
-But the seed control (slide 20c) shows the clipped-ratio varies by 0.029 across seeds
-of the *same* configuration — larger than the effect itself. A single-seed difference
-of 54% vs 44% is therefore not evidence of a systematic difference. And at 3e-5 both
-arms clip identically at 61% while v0 still wins by 0.028.
+## 18. Robustness to learning rate — also not established
 
-**We do not have a mechanism.** The effect is real; the explanation is open.
+The remaining hypothesis was that the mask makes training less sensitive to the
+learning rate. Loss across each arm's own best-to-worst rate:
 
----
+| | best | worst | drop |
+|---|---|---|---|
+| plain OPD | 0.7580 @3e-6 | 0.7190 @3e-5 | 0.0390 |
+| v0 | 0.7580 @1e-5 | 0.7305 @3e-5 | 0.0275 |
+
+Difference in sensitivity: **+0.0115, 95% CI [-0.0043, +0.0273]** (bootstrap over
+seeds). **The interval contains zero.**
+
+Directionally v0 is flatter, but the study cannot establish it. Note also that the
+learning rate itself moves accuracy by 0.039 — **five times larger than any
+difference between the arms.**
 
 ## 19. Result 5 — the compute saving is capped
 
@@ -448,17 +458,19 @@ offered earlier.
 
 ## 23. Summary
 
-1. A regex-chosen token subset **matches** learning from all tokens, and beats it at
-   learning rates above the optimum (+0.033 at 1e-5, +0.028 at 3e-5 on MATH500).
-2. These are **not noise**: a seed control puts run-to-run SD at 0.0079, so the
-   effects are about 4x that, and 3 seeds per arm suffices to establish them.
-3. **At each method's own best learning rate the two are tied** (0.7580 vs 0.7590).
-   The honest claim is robustness to learning rate, not a higher ceiling.
-4. The stated hypothesis — that the free mask concentrates gradient signal — is
-   **false**. It concentrates on *less*-informative tokens than a random subset, and
-   still wins. We have no working mechanism.
-5. The compute advantage is real and **capped at 11.6%**.
-6. Difficulty does not modulate the effect (|r| < 0.05 at all three rates).
+1. **On-policy distillation works here.** +0.059 over the untrained student
+   (0.6990 -> 0.7580), far outside the 0.0079 seed noise.
+2. **The learning rate dominates the mask.** Changing it moves accuracy by 0.039;
+   the largest difference between arms is 0.022, and none is significant.
+3. **A free regex mask matches training on every token.** Both peak at exactly
+   0.7580, and v0 is never significantly worse at any rate. That is the defensible
+   claim: *no loss from selecting with a regex*, not a gain.
+4. **The stated hypothesis is false.** The mask concentrates on *less*-informative
+   tokens than a random subset (mass/token 0.55 vs 0.86) and still matches.
+5. **The compute advantage is real and capped at 11.6%**, and the baseline trainer
+   already realises it.
+6. Difficulty does not modulate the effect; AIME cannot resolve it.
 
-**Next:** 2 arms x 3 learning rates x 3 seeds = 18 runs, ~74 GPU-hours, to establish
-the robustness claim properly.
+**Method note worth carrying:** every effect shrank when seeds were added. Single-run
+comparisons at this scale are not trustworthy, and problem-level bootstrap p-values do
+not substitute for repeating the run.

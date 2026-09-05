@@ -5,22 +5,30 @@ Qwen3-1.7B (non-thinking), teacher Qwen3-4B-Instruct-2507, DAPO-Math-17K (en),
 T=1.0/top_p=1.0, 4,096 max completion. **One seed per point** — the spec asks
 for three, and no claim below survives that caveat unchanged.
 
-## 1. Headline: v0 vs vanilla at matched learning rate
+## 1. Headline: v0 vs vanilla — 18 runs, 3 seeds per cell
 
-Same rate, batch shape, schedule, data order; 120 steps; paired bootstrap over problems.
+Statistics at the **seed** level (Welch t on seed means). MATH500, mean ± SD over 3 seeds.
 
-| lr | vanilla MATH500 | v0 MATH500 | Δ | p | vanilla clip | v0 clip |
-|---|---|---|---|---|---|---|
-| 3e-6 | 0.7565 | 0.7520 | -0.0045 | **0.683** | 0.544 | 0.438 |
-| 1e-5 | 0.7260 | 0.7590 | +0.0330 | **0.001** | 0.584 | 0.569 |
-| 3e-5 | 0.7100 | 0.7380 | +0.0280 | **0.002** | 0.613 | 0.613 |
+| lr | vanilla | v0 | Δ | p |
+|---|---|---|---|---|
+| 3e-6 | 0.7580 ± 0.0079 | 0.7492 ± 0.0049 | −0.0088 | 0.188 |
+| 1e-5 | 0.7363 ± 0.0090 | 0.7580 ± 0.0120 | +0.0217 | 0.072 |
+| 3e-5 | 0.7190 ± 0.0078 | 0.7305 ± 0.0067 | +0.0115 | 0.127 |
 
-AMC23 at the same three rates: p = 0.292, 0.441, 0.508 — no consistent effect.
-With 40 problems its CIs span about ±0.05, wider than the effect MATH500 resolves.
+**Null.** Pooled across rates: +0.0081, p=0.10. Both arms peak at exactly **0.7580**
+(base 0.6990). LR-sensitivity difference +0.0115, 95% CI [−0.0043, +0.0273] — contains
+zero.
 
-**Best-vs-best is a tie.** v0's best (0.7590 @1e-5) vs vanilla's best (0.7565 @3e-6):
-+0.0025, p=0.805. The mask does not raise the ceiling — it widens the band of
-learning rates that reach it.
+**What the single-seed data got wrong.** Differences were +0.0330 / +0.0280 at one
+seed, now +0.0217 / +0.0115. Vanilla's seed 0 was unlucky at both higher rates, v0's
+lucky. The earlier p-values (0.001, 0.002) resampled *problems* with the model fixed,
+so they said nothing about run-to-run variance. The 1e-5 p moved 0.040 → 0.072 on one
+added seed: n=3 is fragile for effects this size.
+
+**What stands.** OPD works (+0.059 over base, far outside the 0.0079 seed SD); the
+learning rate moves accuracy 0.039, five times any arm difference; and a zero-cost
+regex matches full-token OPD everywhere. That last is the defensible claim — *no loss*
+from regex selection, not a gain.
 
 ## 2. Learning-rate sweep (vanilla, 120 steps, constant LR)
 
