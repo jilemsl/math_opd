@@ -1,0 +1,105 @@
+{
+  "question": "Which *free* lexical rule concentrates the training signal best, at matched budget?",
+  "method": "One teacher+student pass per rollout yields the per-token divergence the trainer reduces; every candidate is scored against the same vector. mass/token = (share of divergence captured)/(share of tokens spent); 1.0 is neutral. A greedy top-k concentrates harder at smaller budgets, so entropy and random are matched to EACH candidate's own budget separately.",
+  "n_rollouts": 200,
+  "total_tokens": 289597,
+  "masks": {
+    "v0 (math)": {
+      "retention": 0.6380314713204902,
+      "mass_coverage": 0.3482532644670691,
+      "mass_per_token": 0.5458245872203029,
+      "jaccard_with_entropy": 0.3227319681106911
+    },
+    "v0c (prose)": {
+      "retention": 0.40998352883489814,
+      "mass_coverage": 0.7259468784532016,
+      "mass_per_token": 1.770673276841673,
+      "jaccard_with_entropy": 0.575372526891315
+    },
+    "connectives": {
+      "retention": 0.02878828164656402,
+      "mass_coverage": 0.08847086982162547,
+      "mass_per_token": 3.07315563005077,
+      "jaccard_with_entropy": 0.10688551969339312
+    },
+    "sentence-initial": {
+      "retention": 0.026053446686257108,
+      "mass_coverage": 0.0942080314179382,
+      "mass_per_token": 3.6159527202837176,
+      "jaccard_with_entropy": 0.09621045923180617
+    },
+    "all words >=2 letters": {
+      "retention": 0.28661553814438684,
+      "mass_coverage": 0.5231592465073719,
+      "mass_per_token": 1.8252996676119584,
+      "jaccard_with_entropy": 0.383018785358242
+    },
+    "  entropy @v0 (math) budget (PAID)": {
+      "retention": 0.6380314713204902,
+      "mass_coverage": 0.9423969352979669,
+      "mass_per_token": 1.477038324375367,
+      "jaccard_with_entropy": NaN
+    },
+    "  random @v0 (math) budget": {
+      "retention": 0.6380314713204902,
+      "mass_coverage": 0.5498319607110516,
+      "mass_per_token": 0.8617630719266902,
+      "jaccard_with_entropy": NaN
+    },
+    "  entropy @v0c (prose) budget (PAID)": {
+      "retention": 0.40998352883489814,
+      "mass_coverage": 0.9441801314441411,
+      "mass_per_token": 2.302970887946003,
+      "jaccard_with_entropy": NaN
+    },
+    "  random @v0c (prose) budget": {
+      "retention": 0.40998352883489814,
+      "mass_coverage": 0.5075834305449617,
+      "mass_per_token": 1.2380581044009877,
+      "jaccard_with_entropy": NaN
+    },
+    "  entropy @connectives budget (PAID)": {
+      "retention": 0.02878828164656402,
+      "mass_coverage": 0.1371467387908087,
+      "mass_per_token": 4.76397794333715,
+      "jaccard_with_entropy": NaN
+    },
+    "  random @connectives budget": {
+      "retention": 0.02878828164656402,
+      "mass_coverage": 0.03651526091891581,
+      "mass_per_token": 1.268407102834984,
+      "jaccard_with_entropy": NaN
+    },
+    "  entropy @sentence-initial budget (PAID)": {
+      "retention": 0.026053446686257108,
+      "mass_coverage": 0.12614458064795755,
+      "mass_per_token": 4.841761712645005,
+      "jaccard_with_entropy": NaN
+    },
+    "  random @sentence-initial budget": {
+      "retention": 0.026053446686257108,
+      "mass_coverage": 0.03022277135793145,
+      "mass_per_token": 1.16002967752722,
+      "jaccard_with_entropy": NaN
+    },
+    "  entropy @all words >=2 letters budget (PAID)": {
+      "retention": 0.28661553814438684,
+      "mass_coverage": 0.8306188518731283,
+      "mass_per_token": 2.8980245008722862,
+      "jaccard_with_entropy": NaN
+    },
+    "  random @all words >=2 letters budget": {
+      "retention": 0.28661553814438684,
+      "mass_coverage": 0.3543206983669921,
+      "mass_per_token": 1.2362229230869464,
+      "jaccard_with_entropy": NaN
+    }
+  },
+  "findings": [
+    "The mask the project was built on (v0, mathematical notation) captures 0.546 mass/token -- 0.63x a budget-matched random mask, i.e. worse than chance, and 37% of paid entropy selection.",
+    "Its complement (prose) captures 1.771 -- 1.43x random and 77% of paid entropy. Same text, same divergence vector, opposite sign. In mathematical reasoning teacher and student already agree on the notation; the disagreement is in the words between the equations.",
+    "Sentence-initial tokens are 2.6% of the text and carry 9.4% of the signal: 3.62 mass/token, 3.12x random, 75% of paid entropy, from a one-line regex.",
+    "Every free prose-based rule lands at 63-77% of entropy top-k. Entropy must project every position to a 151,936-token vocabulary before it can select; these rules select first and pay nothing."
+  ],
+  "caveat": "mass/token is a proxy: D_t is the per-token loss, not a per-parameter gradient norm. Measured on the untrained student; the ordering could shift as the model trains."
+}

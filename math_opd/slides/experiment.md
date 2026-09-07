@@ -231,6 +231,48 @@ captures more.
 
 ---
 
+## 14b. The inversion — a free rule that DOES concentrate the signal
+
+If the mathematical tokens carry *less* signal than average, the tokens that are not
+mathematical must carry more. Testing that, and a family of other free rules, against
+the same divergence vector. Entropy and random are matched to **each rule's own
+budget** (a greedy top-k concentrates harder when it picks fewer tokens, so unmatched
+comparison is meaningless).
+
+| free rule | % of tokens | mass/token | vs random | of paid entropy | overlap w/ entropy |
+|---|---|---|---|---|---|
+| sentence-initial word | 2.6% | **3.62** | 3.12x | 75% | 0.10 |
+| connectives (so, thus, since...) | 2.9% | 3.07 | 2.42x | 65% | 0.11 |
+| all words >= 2 letters | 28.7% | 1.83 | 1.48x | 63% | 0.38 |
+| **v0c — the prose (NOT maths)** | 41.0% | **1.77** | 1.43x | 77% | 0.58 |
+| **v0 — the maths** | 63.8% | **0.55** | **0.63x** | 37% | 0.32 |
+
+**The sign flips.** The mask this project was built on captures *less* signal than a
+random mask at the same budget (0.63x). Its complement captures 1.43x.
+
+**Sentence-initial tokens are 2.6% of the text and carry 9.4% of the signal.** One
+regex, no model, no logits.
+
+---
+
+## 14c. What that means
+
+**In mathematical reasoning the learning signal is in the prose, not the equations.**
+After `\frac{1}{`, the `2}` is determined — teacher and student agree, the divergence
+is near zero. They disagree about *"therefore"*, *"since"*, *"we need to consider"*:
+the tokens that choose what the derivation does next.
+
+**It is not a cheap copy of entropy selection.** Sentence-initial reaches 75% of what
+entropy top-k captures while overlapping its choices by only **0.10**. It finds a
+*different* high-signal set, for free. Entropy must project all 151,936 vocabulary
+logits at every position before it can choose; these rules choose first and pay
+nothing.
+
+**Caveat.** mass/token is a proxy: D_t is the per-token loss, not a per-parameter
+gradient norm. Measured on the untrained student; the ordering may shift with training.
+
+---
+
 ## 15. Why — and what it predicted
 
 **Mechanism.** Digits and operators inside LaTeX are among the *most predictable*

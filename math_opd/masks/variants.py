@@ -5,6 +5,12 @@
     v0ms  v0 with spans of < 2 atomic units dropped
     v2    M_EXT runs immediately following a relational operator,
           up to the first non-M_EXT token
+    v0c   the complement of v0 -- everything v0 does not select, i.e. the
+          prose. Included because the Phase 0 gradient-mass probe found v0
+          captures 0.55x its proportional share of the divergence the trainer
+          reduces, which means its complement captures 1.80x. In mathematical
+          reasoning the teacher and student already agree on the notation; they
+          disagree about the words between the equations.
 
 v0ms exists because v1 differs from v0 along two axes at once: it drops entry
 tokens *and* it deletes length-1 spans (lone numerals in prose, "we have 3
@@ -17,7 +23,7 @@ from .charclass import M_EXT
 from .spans import Span, find_spans
 
 
-VARIANTS = ("v0", "v1", "v0ms", "v2")
+VARIANTS = ("v0", "v1", "v0ms", "v2", "v0c")
 
 #: Not just bare `=`: restricting to it drives v2 retention below the gate.
 TRIGGERS = (
@@ -117,6 +123,10 @@ def variant_char_ranges(text: str, variant: str) -> list[tuple[int, int]]:
     spans, _ = find_spans(text)
     if variant == "v0":
         return [r for s in spans for r in s.kept]
+    if variant == "v0c":
+        # Complement over the whole text; `char_ranges_to_token_mask` clips to
+        # the completion, so no token outside it can be selected.
+        return _subtract([(0, len(text))], [r for s in spans for r in s.kept])
     if variant == "v0ms":
         return [r for s in spans if len(s.units) >= 2 for r in s.kept]
     if variant == "v1":
