@@ -1,9 +1,17 @@
 # Results
 
-Every number here is reproducible from the JSON in this directory. Student
-Qwen3-1.7B (non-thinking), teacher Qwen3-4B-Instruct-2507, DAPO-Math-17K (en),
-T=1.0/top_p=1.0, 4,096 max completion. **One seed per point** — the spec asks
-for three, and no claim below survives that caveat unchanged.
+**Headline: gradient-mass coverage — the metric used to select and justify token
+masks — anti-predicts accuracy.** Three masks spanning 0.55–1.77 mass/token, trained
+identically (lr 1e-5, 120 steps, 3 seeds) on MATH500:
+
+| mask | mass/token | MATH500 | over untrained |
+|---|---|---|---|
+| v0 (maths) | 0.55 *(worst)* | **0.7580 ± 0.0120** | +0.059 |
+| plain OPD (all tokens) | 1.00 | 0.7363 ± 0.0090 | +0.037 |
+| v0c (prose) | 1.77 *(best)* | 0.7072 ± 0.0210 | +0.008 |
+
+v0c vs v0: −0.051, p=0.022. v0c vs untrained: p=0.570. Ranked by mass the order is
+v0c > plain > v0; by accuracy it is exactly reversed. See `results/mass_vs_accuracy.json`.
 
 ## 1. Headline: v0 vs vanilla — 18 runs, 3 seeds per cell
 

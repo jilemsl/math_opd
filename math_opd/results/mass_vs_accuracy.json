@@ -1,0 +1,58 @@
+{
+  "question": "Does gradient-mass coverage -- the metric this subfield selects masks by -- predict accuracy?",
+  "design": "Three masks spanning 0.55 to 1.77 mass/token, trained identically (lr 1e-5 constant, 120 steps, 32 rollouts/step, 3 seeds each) and evaluated on MATH500. Statistics at the seed level.",
+  "arms": {
+    "v0 (mathematical notation)": {
+      "mass_per_token": 0.546,
+      "accuracy": 0.758,
+      "sd": 0.012,
+      "seeds": [
+        0.759,
+        0.7695,
+        0.7455
+      ]
+    },
+    "vanilla (all tokens)": {
+      "mass_per_token": 1.0,
+      "accuracy": 0.7363,
+      "sd": 0.009,
+      "seeds": [
+        0.726,
+        0.7405,
+        0.7425
+      ]
+    },
+    "v0c (prose)": {
+      "mass_per_token": 1.771,
+      "accuracy": 0.7072,
+      "sd": 0.021,
+      "seeds": [
+        0.683,
+        0.721,
+        0.7175
+      ]
+    }
+  },
+  "untrained_base": 0.699,
+  "tests": {
+    "v0c_vs_v0": {
+      "delta": -0.0508,
+      "t": -3.64,
+      "p": 0.022
+    },
+    "v0c_vs_vanilla": {
+      "delta": -0.0292,
+      "t": -2.21,
+      "p": 0.092
+    },
+    "v0c_vs_base": {
+      "delta": 0.0082,
+      "t": 0.67,
+      "p": 0.57
+    }
+  },
+  "finding": "Gradient-mass coverage anti-predicts accuracy. Ranked by mass/token the order is v0c > vanilla > v0; ranked by accuracy it is exactly reversed. The arm that best satisfies the selection criterion (v0c, 1.77 mass/token) is statistically indistinguishable from not training at all (+0.008 over base, p=0.570), while the arm that fails it worst (v0, 0.55) learns most (+0.059). v0c vs v0 is -0.051, p=0.022.",
+  "mechanism": "High divergence marks arbitrariness as readily as it marks information. Prose tokens diverge because phrasing is underdetermined -- many wordings are correct, so teacher and student disagree without either being wrong, and matching the teacher's word choice teaches no mathematics. Notation tokens agree because they are determined; training there reinforces correct computation without fighting over style.",
+  "consequence": "DEAR-style gradient-mass coverage (entropy 39.1%, random 35.9% are the published targets) should not be used to select or justify a mask without an accuracy check. Here it would have picked the worst of three arms.",
+  "caveat": "One learning rate, one benchmark, three seeds, one model pair. The ordering is clean but the mechanism is inferred, not demonstrated."
+}

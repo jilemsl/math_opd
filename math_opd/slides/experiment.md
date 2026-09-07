@@ -255,21 +255,47 @@ regex, no model, no logits.
 
 ---
 
-## 14c. What that means
+## 14c. Does capturing the signal actually help? No.
 
-**In mathematical reasoning the learning signal is in the prose, not the equations.**
-After `\frac{1}{`, the `2}` is determined — teacher and student agree, the divergence
-is near zero. They disagree about *"therefore"*, *"since"*, *"we need to consider"*:
-the tokens that choose what the derivation does next.
+Three masks spanning the whole range of mass/token, trained identically (lr 1e-5,
+120 steps, **3 seeds each**) and evaluated on MATH500.
 
-**It is not a cheap copy of entropy selection.** Sentence-initial reaches 75% of what
-entropy top-k captures while overlapping its choices by only **0.10**. It finds a
-*different* high-signal set, for free. Entropy must project all 151,936 vocabulary
-logits at every position before it can choose; these rules choose first and pay
-nothing.
+| mask | mass/token | MATH500 | over untrained |
+|---|---|---|---|
+| **v0 — the maths** | **0.55** (worst) | **0.7580 +/- 0.0120** | **+0.059** |
+| plain OPD — all tokens | 1.00 | 0.7363 +/- 0.0090 | +0.037 |
+| **v0c — the prose** | **1.77** (best) | **0.7072 +/- 0.0210** | **+0.008** |
 
-**Caveat.** mass/token is a proxy: D_t is the per-token loss, not a per-parameter
-gradient norm. Measured on the untrained student; the ordering may shift with training.
+untrained student = 0.6990
+
+- v0c vs v0: **-0.051, p = 0.022**
+- v0c vs untrained: +0.008, **p = 0.570** — prose masking barely learns at all
+
+**Ranked by gradient mass the order is v0c > plain > v0. Ranked by accuracy it is
+exactly reversed.**
+
+---
+
+## 14d. The actual result
+
+**Gradient-mass coverage does not predict accuracy. Here it anti-predicts it.**
+
+This is the metric the subfield selects masks by — DEAR's published targets are
+entropy 39.1%, random 35.9%, and our own project was justified by it. On these three
+arms it would have chosen **the worst one**, and that one is statistically
+indistinguishable from not training.
+
+**Why.** High divergence marks *arbitrariness* as readily as it marks information.
+Prose diverges because phrasing is underdetermined: many wordings are correct, so
+teacher and student disagree without either being wrong, and matching the teacher's
+word choice teaches no mathematics. Notation agrees because it is *determined* — and
+training there reinforces correct computation without fighting over style.
+
+**What to take from it.** A selection metric computed from divergence needs an
+accuracy check before it justifies anything. Ours did not have one until now.
+
+*Caveat: one learning rate, one benchmark, three seeds, one teacher-student pair. The
+ordering is clean; the mechanism is inferred, not demonstrated.*
 
 ---
 
@@ -500,19 +526,18 @@ offered earlier.
 
 ## 23. Summary
 
-1. **On-policy distillation works here.** +0.059 over the untrained student
-   (0.6990 -> 0.7580), far outside the 0.0079 seed noise.
-2. **The learning rate dominates the mask.** Changing it moves accuracy by 0.039;
-   the largest difference between arms is 0.022, and none is significant.
-3. **A free regex mask matches training on every token.** Both peak at exactly
-   0.7580, and v0 is never significantly worse at any rate. That is the defensible
-   claim: *no loss from selecting with a regex*, not a gain.
-4. **The stated hypothesis is false.** The mask concentrates on *less*-informative
-   tokens than a random subset (mass/token 0.55 vs 0.86) and still matches.
-5. **The compute advantage is real and capped at 11.6%**, and the baseline trainer
-   already realises it.
-6. Difficulty does not modulate the effect; AIME cannot resolve it.
+1. **The premise fails.** The mask built to select mathematically important tokens
+   captures 0.55 mass/token — **0.63x a budget-matched random mask**, i.e. worse than
+   chance.
+2. **Inverting it maximises the criterion.** Prose captures 1.77x; sentence-initial
+   words 3.62x from 2.6% of tokens, reaching 75% of *paid* entropy selection at only
+   0.10 overlap with it — a different high-signal set, found by regex.
+3. **And the inverted mask trains worst.** 0.7072 vs the maths mask's 0.7580
+   (p = 0.022), and indistinguishable from no training at all (p = 0.570).
+4. **So gradient-mass coverage anti-predicts accuracy** across three arms. The metric
+   the field selects masks by would have picked the worst of the three.
+5. Supporting: the learning rate moves accuracy 0.039 while no mask difference
+   exceeds 0.022; the teacher-side compute saving is capped at 11.6%; and every
+   single-seed effect shrank when seeds were added.
 
-**Method note worth carrying:** every effect shrank when seeds were added. Single-run
-comparisons at this scale are not trustworthy, and problem-level bootstrap p-values do
-not substitute for repeating the run.
+**The contribution is a warning about the metric, not a better mask.**
