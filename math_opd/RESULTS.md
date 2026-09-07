@@ -1,26 +1,42 @@
 # Results
 
-Every number here is reproducible from the JSON in this directory. Student
-Qwen3-1.7B (non-thinking), teacher Qwen3-4B-Instruct-2507, DAPO-Math-17K (en),
-T=1.0/top_p=1.0, 4,096 max completion. **One seed per point** — the spec asks
-for three, and no claim below survives that caveat unchanged.
+**Headline: gradient-mass coverage — the metric used to select and justify token
+masks — anti-predicts accuracy.** Three masks spanning 0.55–1.77 mass/token, trained
+identically (lr 1e-5, 120 steps, 3 seeds) on MATH500:
 
-## 1. Headline: v0 vs vanilla at matched learning rate
+| mask | mass/token | MATH500 | over untrained |
+|---|---|---|---|
+| v0 (maths) | 0.55 *(worst)* | **0.7580 ± 0.0120** | +0.059 |
+| plain OPD (all tokens) | 1.00 | 0.7363 ± 0.0090 | +0.037 |
+| v0c (prose) | 1.77 *(best)* | 0.7072 ± 0.0210 | +0.008 |
 
-Same rate, batch shape, schedule, data order; 120 steps; paired bootstrap over problems.
+v0c vs v0: −0.051, p=0.022. v0c vs untrained: p=0.570. Ranked by mass the order is
+v0c > plain > v0; by accuracy it is exactly reversed. See `results/mass_vs_accuracy.json`.
 
-| lr | vanilla MATH500 | v0 MATH500 | Δ | p | vanilla clip | v0 clip |
-|---|---|---|---|---|---|---|
-| 3e-6 | 0.7565 | 0.7520 | -0.0045 | **0.683** | 0.544 | 0.438 |
-| 1e-5 | 0.7260 | 0.7590 | +0.0330 | **0.001** | 0.584 | 0.569 |
-| 3e-5 | 0.7100 | 0.7380 | +0.0280 | **0.002** | 0.613 | 0.613 |
+## 1. Headline: v0 vs vanilla — 18 runs, 3 seeds per cell
 
-AMC23 at the same three rates: p = 0.292, 0.441, 0.508 — no consistent effect.
-With 40 problems its CIs span about ±0.05, wider than the effect MATH500 resolves.
+Statistics at the **seed** level (Welch t on seed means). MATH500, mean ± SD over 3 seeds.
 
-**Best-vs-best is a tie.** v0's best (0.7590 @1e-5) vs vanilla's best (0.7565 @3e-6):
-+0.0025, p=0.805. The mask does not raise the ceiling — it widens the band of
-learning rates that reach it.
+| lr | vanilla | v0 | Δ | p |
+|---|---|---|---|---|
+| 3e-6 | 0.7580 ± 0.0079 | 0.7492 ± 0.0049 | −0.0088 | 0.188 |
+| 1e-5 | 0.7363 ± 0.0090 | 0.7580 ± 0.0120 | +0.0217 | 0.072 |
+| 3e-5 | 0.7190 ± 0.0078 | 0.7305 ± 0.0067 | +0.0115 | 0.127 |
+
+**Null.** Pooled across rates: +0.0081, p=0.10. Both arms peak at exactly **0.7580**
+(base 0.6990). LR-sensitivity difference +0.0115, 95% CI [−0.0043, +0.0273] — contains
+zero.
+
+**What the single-seed data got wrong.** Differences were +0.0330 / +0.0280 at one
+seed, now +0.0217 / +0.0115. Vanilla's seed 0 was unlucky at both higher rates, v0's
+lucky. The earlier p-values (0.001, 0.002) resampled *problems* with the model fixed,
+so they said nothing about run-to-run variance. The 1e-5 p moved 0.040 → 0.072 on one
+added seed: n=3 is fragile for effects this size.
+
+**What stands.** OPD works (+0.059 over base, far outside the 0.0079 seed SD); the
+learning rate moves accuracy 0.039, five times any arm difference; and a zero-cost
+regex matches full-token OPD everywhere. That last is the defensible claim — *no loss*
+from regex selection, not a gain.
 
 ## 2. Learning-rate sweep (vanilla, 120 steps, constant LR)
 
@@ -98,8 +114,8 @@ projection, so this saving is in the baseline trainer, not added by this work.
 
 | model | AIME24 | AIME25 | AIME26 |
 |---|---|---|---|
-| base | 0.1073 | 0.0854 | — |
-| van3e6 | 0.1844 | — | — |
+| base | 0.1073 | 0.0854 | 0.0740 |
+| van3e6 | 0.1844 | 0.1625 | 0.1406 |
 | v03e6 | 0.1958 | — | — |
 | van1e5 | 0.1729 | 0.1854 | 0.1490 |
 | v01e5 | 0.1635 | 0.1635 | — |
@@ -109,6 +125,42 @@ year gives 95% CIs of roughly ±0.10 — wide enough to contain both zero and th
 +0.03 effect MATH500 resolves. Training clearly lifts AIME over base
 (0.107 → 0.16–0.20 on AIME24), but the v0-vs-vanilla ordering is inconsistent
 across years and should not be read as signal.
+
+## 6b. Seed noise floor — is any of this real?
+
+`results/seed_noise.json`. Plain OPD, 3e-6, 120 steps, run three times with different
+seeds (seed varies both the prompt sample and training randomness).
+
+| seed | MATH500 |
+|---|---|
+| 0 | 0.7565 |
+| 1 | 0.7665 |
+| 2 | 0.7510 |
+| mean | 0.7580 |
+| **SD** | **0.0079** |
+
+Minimum detectable difference at 80% power: **3 seeds → 0.018**, 5 → 0.014, 8 → 0.011,
+12 → 0.009.
+
+The measured effects (0.028, 0.033) are ~4x the seed SD and clear the 3-seed
+threshold. **They are not run-to-run noise.** Two corollaries:
+
+- The tie at 3e-6 (−0.0045) is inside one SD — a genuine null, not an undertuned
+  baseline.
+- Best-vs-best is a tie against a proper estimate: plain OPD at 3e-6 averages 0.7580
+  over three seeds, v0's best is 0.7590.
+
+Accuracy is far more stable across seeds than training metrics: final-loss SD 0.0067,
+clipped-ratio SD 0.0290. The clipping SD exceeds the whole accuracy effect, so
+single-seed differences in answer length are not evidence of a systematic difference —
+this weakens the length-regularization explanation.
+
+## 6c. Difficulty control
+
+MATH500 labels problems 1–5. Correlation between level and (v0 − plain OPD):
+**+0.015 / −0.027 / +0.044** at 3e-6 / 1e-5 / 3e-5, all 95% CIs containing zero, sign
+inconsistent. At 1e-5 the advantage is largest on the *easiest* problems. The effect
+does not grow with difficulty.
 
 ## 7. Cost model
 

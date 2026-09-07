@@ -1,0 +1,30 @@
+{
+  "purpose": "Is the measured v0-vs-vanilla difference larger than the spread from simply re-running the same configuration?",
+  "design": "vanilla, lr 3e-6 constant, 120 steps, 32 rollouts/step, seeds 0/1/2. Seed varies both the prompt sample and training randomness, i.e. the variance of repeating the whole experiment. MATH500 k=4.",
+  "per_seed_math500": {
+    "seed0": 0.7565,
+    "seed1": 0.7665,
+    "seed2": 0.751
+  },
+  "mean": 0.758,
+  "sd": 0.0079,
+  "spread": 0.0155,
+  "min_detectable_difference_80pct_power": {
+    "3": 0.018,
+    "5": 0.0139,
+    "8": 0.011,
+    "12": 0.009
+  },
+  "measured_effects": {
+    "v0_vs_vanilla_1e-5": 0.033,
+    "v0_vs_vanilla_3e-5": 0.028,
+    "v0_vs_vanilla_3e-6": -0.0045
+  },
+  "findings": [
+    "Seed SD on MATH500 is 0.0079. The 0.028-0.033 effects are about 4x that, and above the 0.018 threshold detectable with 3 seeds per arm. The effect is not run-to-run noise, and the study is feasible at 3 seeds.",
+    "The tie at 3e-6 (-0.0045) is well inside one seed SD, so it is a genuine null rather than an undertrained baseline.",
+    "Best-vs-best is confirmed a tie against a 3-seed estimate: vanilla at its best rate (3e-6) averages 0.7580 over three seeds; v0's best (1e-5, single seed) is 0.7590. Neither method reaches a higher ceiling.",
+    "Accuracy is far more stable across seeds than training metrics are. Final loss SD is 0.0067 and clipped-ratio SD is 0.0290 -- the latter is larger than the whole accuracy effect, so single-seed differences in clipping (v0 0.438 vs vanilla 0.544 at 3e-6) are not evidence of a systematic difference. This weakens the length-regularization explanation."
+  ],
+  "consequence": "The defensible claim is that v0 degrades less than vanilla when the learning rate is above optimal, and that this is real rather than noise. It is not that selective OPD beats full-token OPD: at each method's own best rate they are indistinguishable."
+}

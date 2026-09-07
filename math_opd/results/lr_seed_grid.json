@@ -1,0 +1,85 @@
+{
+  "design": "2 arms x 3 learning rates x 3 seeds = 18 runs. 120 steps, constant LR, 32 rollouts/step, 4096 tokens, DAPO-Math-17K. Seed varies prompt sample and training randomness. MATH500 k=4. Statistics are at the SEED level (Welch t on seed means), not the problem level.",
+  "per_seed_accuracy": {
+    "vanilla@3e-6": [
+      0.7565,
+      0.7665,
+      0.751
+    ],
+    "vanilla@1e-5": [
+      0.726,
+      0.7405,
+      0.7425
+    ],
+    "vanilla@3e-5": [
+      0.71,
+      0.724,
+      0.723
+    ],
+    "v0@3e-6": [
+      0.752,
+      0.7435,
+      0.752
+    ],
+    "v0@1e-5": [
+      0.759,
+      0.7695,
+      0.7455
+    ],
+    "v0@3e-5": [
+      0.738,
+      0.7285,
+      0.725
+    ]
+  },
+  "per_lr": {
+    "3e-6": {
+      "vanilla_mean": 0.758,
+      "v0_mean": 0.7492,
+      "delta": -0.0088,
+      "p": 0.188
+    },
+    "1e-5": {
+      "vanilla_mean": 0.7363,
+      "v0_mean": 0.758,
+      "delta": 0.0217,
+      "p": 0.072
+    },
+    "3e-5": {
+      "vanilla_mean": 0.719,
+      "v0_mean": 0.7305,
+      "delta": 0.0115,
+      "p": 0.127
+    }
+  },
+  "lr_sensitivity": {
+    "vanilla_drop": 0.039,
+    "v0_drop": 0.0275,
+    "difference": 0.0115,
+    "ci95": [
+      -0.0043,
+      0.0273
+    ],
+    "significant": false
+  },
+  "pooled": {
+    "mean_v0_advantage": 0.0081,
+    "t": 1.74,
+    "p": 0.1005
+  },
+  "best_vs_best": {
+    "vanilla": 0.758,
+    "v0": 0.758,
+    "base": 0.699
+  },
+  "conclusion": "NULL. With three seeds per cell and seed-level statistics, v0 does not differ significantly from full-token OPD at any learning rate (p = 0.188, 0.072, 0.127), the pooled advantage is +0.0081 (p = 0.10), and the LR-robustness difference is +0.0115 with a 95% CI of [-0.0043, +0.0273] that contains zero. Both arms peak at exactly 0.7580, +0.059 over the untrained student.",
+  "what_the_single_seed_data_got_wrong": "The single-seed differences were +0.0330 at 1e-5 and +0.0280 at 3e-5; with three seeds they are +0.0217 and +0.0115. Vanilla's seed 0 was unlucky at both rates and v0's was lucky. The p-values reported then (0.001, 0.002) resampled problems with the trained model held fixed, so they measured problem-sampling noise and were silent about run-to-run variance. This is exactly the failure the tutor's objection anticipated.",
+  "what_still_stands": [
+    "On-policy distillation works here: +0.059 over the untrained student at 3e-6, well outside the 0.0079 seed SD.",
+    "Learning rate dominates the mask. Vanilla loses 0.039 going from 3e-6 to 3e-5 -- five times the largest arm difference measured.",
+    "v0 is never significantly worse than full-token OPD at any rate, and matches its best exactly (0.7580 vs 0.7580). A regex costing nothing does as well as training on every token.",
+    "The gradient-mass result (mass/token 0.55 for v0 against 1.48 for entropy) is a measurement, not a comparison, and is unaffected.",
+    "The teacher-forward saving ceiling of 11.6% is unaffected."
+  ],
+  "caveat": "Three seeds gives a detectable difference of about 0.018 at 80% power. Effects smaller than that cannot be resolved here, and the 1e-5 p-value moved from 0.040 to 0.072 on a single added seed, so n=3 is fragile. Five or more seeds would be needed to settle differences of this size."
+}
