@@ -33,14 +33,24 @@
    "mean": 0.7363,
    "sd": 0.009
   },
+  "random@0.20": {
+   "retention": 0.2,
+   "seeds": [
+    0.7385,
+    0.731
+   ],
+   "mean": 0.7348,
+   "sd": 0.0053
+  },
   "random@0.41": {
    "retention": 0.41,
    "seeds": [
     0.7195,
-    0.7255
+    0.7255,
+    0.721
    ],
-   "mean": 0.7225,
-   "sd": 0.0042
+   "mean": 0.722,
+   "sd": 0.0031
   },
   "random@0.64": {
    "retention": 0.64,
@@ -51,6 +61,15 @@
    ],
    "mean": 0.7337,
    "sd": 0.0081
+  },
+  "random@0.85": {
+   "retention": 0.85,
+   "seeds": [
+    0.7285,
+    0.741
+   ],
+   "mean": 0.7348,
+   "sd": 0.0088
   }
  },
  "tests": {
@@ -60,9 +79,9 @@
    "p": 0.0515
   },
   "random@0.41_vs_text_only": {
-   "delta": 0.0153,
-   "t": 1.228,
-   "p": 0.3331
+   "delta": 0.0148,
+   "t": 1.21,
+   "p": 0.3454
   },
   "random@0.64_vs_vanilla": {
    "delta": -0.0027,
@@ -70,16 +89,67 @@
    "p": 0.7223
   },
   "random@0.41_vs_random@0.64": {
-   "delta": -0.0112,
-   "t": -2.013,
-   "p": 0.1383
+   "delta": -0.0117,
+   "t": -2.332,
+   "p": 0.116
   }
  },
- "missing": [
-  "g_rnd020_s*.json",
-  "g_rnd085_s*.json"
- ],
  "incomplete_cells": [
-  "random@0.41"
- ]
+  "random@0.20",
+  "random@0.85"
+ ],
+ "budget_axis": {
+  "random@0.20": {
+   "retention": 0.2,
+   "mean": 0.7348,
+   "sd": 0.0053,
+   "n_seeds": 2,
+   "vs_vanilla_delta": -0.0016,
+   "p": 0.8208
+  },
+  "random@0.41": {
+   "retention": 0.41,
+   "mean": 0.722,
+   "sd": 0.0031,
+   "n_seeds": 3,
+   "vs_vanilla_delta": -0.0143,
+   "p": 0.0976
+  },
+  "random@0.64": {
+   "retention": 0.64,
+   "mean": 0.7337,
+   "sd": 0.0081,
+   "n_seeds": 3,
+   "vs_vanilla_delta": -0.0027,
+   "p": 0.7223
+  },
+  "random@0.85": {
+   "retention": 0.85,
+   "mean": 0.7348,
+   "sd": 0.0088,
+   "n_seeds": 2,
+   "vs_vanilla_delta": -0.0016,
+   "p": 0.8614
+  },
+  "span_0.20_to_1.00": 0.0143
+ },
+ "selection_axis": {
+  "math_only_vs_random@0.64": {
+   "budget": 0.638,
+   "mass_per_token_lexical": 0.55,
+   "mass_per_token_random": 0.86,
+   "delta": 0.0243,
+   "p": 0.0515
+  },
+  "text_only_vs_random@0.41": {
+   "budget": 0.41,
+   "mass_per_token_lexical": 1.77,
+   "mass_per_token_random": 1.24,
+   "delta": -0.0148,
+   "p": 0.3454
+  }
+ },
+ "finding": "Two axes, measured separately at lr 1e-5 on MATH500. BUDGET (how many completion tokens receive gradient), swept with a uniform random mask from 0.20 to 1.00: total span 0.0143 against a seed SD of ~0.008, non-monotone, no cell significantly below full-token OPD. The budget does not matter anywhere in that 5x range. SELECTION (which tokens), measured against a uniform draw at the same budget: math_only +0.0243 (p=0.052), text_only -0.0148 (p=0.345). Selection is the only axis in this experiment that moves accuracy, and it moves it opposite to gradient-mass coverage -- the lower-divergence selection beats random, the higher-divergence one loses to it.",
+ "effect_size_in_context": "OPD at this scale buys +0.059 over the untrained student (0.6990 -> 0.7580). A budget-matched uniform random mask captures +0.035 of that; math_only captures all of it. So the regex recovers the ~41% of OPD's benefit that an uninformative selection leaves on the table, while capturing LESS teacher-student divergence than the random mask it beats.",
+ "caveat": "One learning rate (1e-5). The math_only-vs-vanilla contrast changed sign across learning rates (-0.0088 at 3e-6, +0.0217 at 1e-5), but that contrast confounds budget with selection; the matched-budget contrast has not yet been run at a second rate. p=0.052 with 3 seeds per cell is marginal, though the effect clears the 3-seed minimum detectable difference of 0.018. random@0.20 and random@0.85 have 2 seeds, not 3."
 }

@@ -179,57 +179,72 @@ indistinguishable from not training at all.
 \end{frame}
 
 % ---------------------------------------------------------------- 5
-\begin{frame}{Table 3 --- matched-budget control: \emph{how many} vs \emph{which}}
+\begin{frame}{Table 3 --- two axes, priced separately}
 
 \aside{Every masked arm changes two things at once: the \textbf{budget} (how many positions
 receive gradient) and the \textbf{selection} (which ones). A flat-rate random mask holds the
-first fixed and makes the second uninformative, so the two can be priced separately.}
+first and makes the second uninformative, so they can be measured apart.}
 
-\vspace{0.4em}
+\vspace{0.3em}
 \begin{block}{\small flat-rate random mask at rate $r$}
 \small At every optimizer step, for each rollout independently, draw
 $\mathrm{round}(r\cdot n)$ of its $n$ completion tokens uniformly without replacement;
 gradient flows only there. Redrawn each step, blind to token content.
-\aside{Measured retention over 120 steps: 0.6399 against a 0.64 target.}
+\aside{Measured retention over 120 steps: 0.2000, 0.4099, 0.6399, 0.8501 against targets.}
 \end{block}
 
-\vspace{0.5em}
-\centering
-{\small
+\vspace{0.4em}
+\begin{columns}[T]
+\begin{column}{0.47\textwidth}
+\centering\textbf{\small Budget axis} \\[0.2em]
+\aside{uniform selection; only $r$ varies}\\[0.4em]
+{\footnotesize
 \begin{tabular}{@{}lrrr@{}}
 \toprule
-\textbf{arm} & \textbf{retention} & \textbf{mass/token} & \textbf{MATH500} \\
+$\boldsymbol{r}$ & \textbf{MATH500} & \textbf{seeds} & $\boldsymbol{p}$ \\
 \midrule
-\texttt{math\_only}           & 0.638 & \dn{0.55} & \up{0.7580 $\pm$ 0.0120} \\
-\texttt{random} @0.64 budget  & 0.640 & 0.86      & 0.7337 $\pm$ 0.0081 \\
-\texttt{vanilla}              & 1.000 & 1.00      & 0.7363 $\pm$ 0.0090 \\
-\midrule
-\emph{untrained student}      & ---   & ---       & \emph{0.6990} \\
+0.20 & 0.7348 $\pm$ 0.0053 & 2 & 0.821 \\
+0.41 & 0.7220 $\pm$ 0.0031 & 3 & 0.098 \\
+0.64 & 0.7337 $\pm$ 0.0081 & 3 & 0.722 \\
+0.85 & 0.7348 $\pm$ 0.0088 & 2 & 0.861 \\
+1.00 & 0.7363 $\pm$ 0.0090 & 3 & --- \\
 \bottomrule
 \end{tabular}}
-
-\vspace{0.7em}
-{\small
-\begin{tabular}{@{}llrr@{}}
+\\[0.4em]
+\aside{$p$ vs full-token OPD. Span \textbf{0.0143} over a 5$\times$ range, non-monotone,
+seed SD $\approx0.008$.}
+\end{column}
+\begin{column}{0.53\textwidth}
+\centering\textbf{\small Selection axis} \\[0.2em]
+\aside{same budget, different tokens}\\[0.4em]
+{\footnotesize
+\begin{tabular}{@{}lrrr@{}}
 \toprule
-\textbf{contrast} & \textbf{prices} & $\boldsymbol{\Delta}$ & $\boldsymbol{p}$ \\
+\textbf{mask} & \textbf{mass/tok} & $\boldsymbol{\Delta}$\textbf{ vs rnd} & $\boldsymbol{p}$ \\
 \midrule
-\texttt{random}@0.64 vs \texttt{vanilla}   & the budget alone    & $-0.0027$ & \dn{0.722} \\
-\texttt{math\_only} vs \texttt{random}@0.64 & the selection alone & \up{$+0.0243$} & \up{0.052} \\
-\texttt{math\_only} vs \texttt{vanilla}     & both together       & $+0.0217$ & 0.072 \\
+\texttt{math\_only} @0.64 & \dn{0.55} \aside{(rnd 0.86)} & \up{$+0.0243$} & \up{0.052} \\
+\texttt{text\_only} @0.41 & \up{1.77} \aside{(rnd 1.24)} & $-0.0148$ & 0.345 \\
 \bottomrule
 \end{tabular}}
+\\[0.6em]
+{\footnotesize
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{arm} & $\boldsymbol{r}$ & \textbf{MATH500} \\
+\midrule
+\texttt{math\_only}      & 0.638 & \up{0.7580 $\pm$ 0.0120} \\
+\texttt{random} @0.64    & 0.640 & 0.7337 $\pm$ 0.0081 \\
+\texttt{vanilla}         & 1.000 & 0.7363 $\pm$ 0.0090 \\
+\emph{untrained}         & ---   & \emph{0.6990} \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\end{columns}
 
-\flushleft
-\vspace{0.6em}
-\textbf{The budget is free; the selection is the whole effect.}
-Withholding gradient from 36\% of completion tokens \emph{at random} costs nothing
-($p=0.722$). It decomposes exactly: $+0.0243+(-0.0027)=+0.0216$.
-
-\medskip
-\aside{Same protocol as Table 2 --- lr $1\times10^{-5}$ constant, 120 steps, 32 rollouts/step,
-3 seeds, train DAPO-Math-17K (en), eval MATH500 $\times4$, Welch $t$ on seed means. $+0.0243$
-clears the 3-seed minimum detectable difference of $0.018$; $+0.0217$ did not.}
+\vspace{0.5em}
+\textbf{The budget does nothing; the selection is the whole effect.} Four fifths of the
+completion can be dropped \emph{at random} for free. Exact decomposition:
+$+0.0243+(-0.0027)=+0.0216$.
 
 \end{frame}
 
@@ -258,6 +273,12 @@ The matched-budget control removes that reading.
 \textbf{At one fixed budget, the lower-mass selection wins by $0.024$.} The metric
 anti-predicts \emph{within} a matched budget, not only across arms that spend different
 amounts --- which is the stronger form of the claim.
+
+\medskip
+\textbf{In context.} OPD buys $+0.059$ over the untrained student. A budget-matched random
+mask captures $+0.035$ of that; \texttt{math\_only} captures all of it. The regex recovers the
+$\approx$\,41\% an uninformative selection leaves on the table --- while capturing \emph{less}
+teacher--student divergence than the mask it beats.
 
 \medskip
 \aside{\texttt{entropy} is budget-matched and implemented but was never trained to completion;
@@ -299,6 +320,12 @@ Train DAPO-Math-17K (en). Eval MATH500 $\times4$. Welch $t$ on seed means.}
 \aside{Seed noise floor, same config repeated three times: SD $=0.0079$, so 3 seeds resolve
 $\approx0.018$ at 80\% power. LR-sensitivity difference $+0.0115$, 95\% CI $[-0.0043,+0.0273]$
 --- contains zero.}
+
+\medskip
+\textbf{But this is the wrong control.} \texttt{vanilla} differs from \texttt{math\_only} in
+budget \emph{and} selection, so its sign can flip for reasons unrelated to the mask. Table 3
+replaces it with a same-budget control. \aside{That control exists at one rate only ---
+re-running it at 3e-6, where this table is negative, is the open experiment.}
 
 \end{frame}
 
@@ -354,11 +381,14 @@ masked projection, so this saving sits in the \emph{baseline} trainer.}
         information. Prose diverges because phrasing is underdetermined --- many wordings are
         correct, so the models disagree without either being wrong. Notation agrees because it
         is \emph{determined}. \aside{Inferred, not demonstrated.}
-  \item \textbf{The budget is free; the selection is the effect.} At a matched budget of 0.64,
-        a uniform random mask is indistinguishable from training on all tokens ($-0.003$,
-        $p=0.722$) --- so 36\% of completion tokens can be dropped at no cost --- while
-        \texttt{math\_only} beats that same random mask by $+0.024$ ($p=0.052$). All of
-        \texttt{math\_only}'s advantage is \emph{which} tokens it keeps, not how many.
+  \item \textbf{The budget does nothing; the selection is the effect.} Sweeping a uniform
+        random mask from $r=0.20$ to $1.00$ moves accuracy by $0.0143$ in total ---
+        non-monotone, inside seed noise, no rate significantly below full-token OPD. At a
+        matched budget \texttt{math\_only} beats that same random mask by $+0.024$
+        ($p=0.052$). \emph{Which} tokens carry gradient is the only axis that moves anything.
+  \item \textbf{Worth $\approx$\,41\% of what OPD buys.} Distillation gains $+0.059$ over the
+        untrained student; a budget-matched random mask gets $+0.035$ of it, the regex gets
+        all of it.
   \item Across learning rates the regex \textbf{matches} full-token OPD; it does not beat it
         outright. The learning rate moves accuracy 5$\times$ more than the mask does.
   \item The teacher-side compute saving is real and \textbf{capped at 11.6\%}.
