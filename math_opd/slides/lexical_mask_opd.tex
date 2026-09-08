@@ -1,0 +1,379 @@
+% Lexical-Mask On-Policy Distillation -- experiment and results.
+% Build:  latexmk -pdf lexical_mask_opd.tex     (or: pdflatex x2)
+% Every number is reproducible from ../results/*.json; see ../RESULTS.md.
+
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{good}{HTML}{1B7837}
+\definecolor{bad}{HTML}{B2182B}
+\definecolor{mut}{HTML}{6E6E6E}
+
+\usetheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{structure}{fg=accent}
+\setbeamercolor{frametitle}{fg=accent}
+\setbeamerfont{frametitle}{series=\bfseries,size=\large}
+\setbeamertemplate{itemize items}[circle]
+\setbeamertemplate{blocks}[rounded][shadow=false]
+\setbeamercolor{block title}{bg=accent!15,fg=accent}
+\setbeamercolor{block body}{bg=accent!6,fg=black}
+\setbeamertemplate{footline}{%
+  \hfill\textcolor{mut}{\scriptsize\insertframenumber}\hspace*{2.5ex}\vspace*{2ex}}
+\setlength{\leftmargini}{1.4em}
+
+\newcommand{\sel}[1]{\textcolor{accent}{\textbf{#1}}}
+\newcommand{\up}[1]{\textcolor{good}{\textbf{#1}}}
+\newcommand{\dn}[1]{\textcolor{bad}{\textbf{#1}}}
+\newcommand{\aside}[1]{{\footnotesize\textcolor{mut}{#1}}}
+
+\title{\textbf{Can a regular expression choose which tokens to learn from?}}
+\subtitle{Lexical-mask on-policy distillation}
+\author{}
+\date{\small\today}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \titlepage
+  \vspace{-1.5em}
+  \begin{center}\aside{teacher Qwen3-4B-Instruct-2507 (4.02\,B params) $\rightarrow$
+  student Qwen3-1.7B (2.03\,B) \quad$\cdot$\quad
+  train DAPO-Math-17K (en) \quad$\cdot$\quad eval MATH500}\end{center}
+\end{frame}
+
+% ---------------------------------------------------------------- 2
+\begin{frame}{Setup}
+
+Selective OPD reduces the loss over a chosen subset $M$ of completion positions:
+$\mathcal{L}=\frac{1}{|M|}\sum_{t\in M} D_t$, with $D_t$ the student--teacher divergence at $t$.
+
+\medskip
+Published selectors pick $M$ from \textbf{model outputs} (student entropy, teacher--student KL):
+a forward pass \emph{before} choosing. Here $M$ comes from a regex over the decoded text.
+
+\vspace{0.6em}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+{\footnotesize
+\begin{tabular}{@{}l>{\raggedright\arraybackslash}p{4.4cm}@{}}
+\toprule
+\textbf{mask} & \textbf{selects} \\
+\midrule
+\texttt{math\_only} & interiors of \texttt{\$..\$}, \texttt{\$\$..\$\$}, \texttt{\textbackslash[..\textbackslash]}, plus digit/operator runs outside them \\
+\texttt{text\_only} & the complement: everything else \\
+\midrule
+\texttt{random}  & a flat fraction $r$ of each rollout's tokens, drawn uniformly, redrawn every step \\
+\texttt{entropy} & top-$k$ student entropy \dn{(needs logits)} \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\begin{column}{0.5\textwidth}
+{\footnotesize
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{quantity} & \textbf{definition} \\
+\midrule
+retention $r$ & selected / all completion tokens \\
+ & (prompt and padding excluded) \\
+$\mathrm{cov}(M)$ & $\sum_{t\in M}D_t \big/ \sum_t D_t$ \\
+mass/token & $\mathrm{cov}(M)/r$; \; $1.0=$ average \\
+\bottomrule
+\end{tabular}}
+
+\medskip
+\aside{Masks are built on \emph{characters}, then mapped to tokens via
+\texttt{offset\_mapping}: Qwen3 splits \texttt{12} into \texttt{1},\texttt{2} and glues a
+leading space onto the next token.}
+\end{column}
+\end{columns}
+
+\vspace{0.6em}
+\aside{$D_t$ is the per-token loss standing in for gradient magnitude --- the same proxy the prior work reports, not a per-parameter gradient norm.}
+
+\end{frame}
+
+% ---------------------------------------------------------------- 3
+\begin{frame}{Table 1 --- what the masks capture}
+
+\aside{200 rollouts from the \emph{untrained} student on DAPO-Math-17K (en). One
+teacher+student pass per rollout; every rule scored against the same $D_t$ vector.
+\texttt{entropy} and \texttt{random} are matched to \emph{each} rule's own budget --- a
+greedy top-$k$ concentrates harder at smaller budgets, so unmatched comparison is meaningless.}
+
+\vspace{0.8em}
+\centering
+{\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{rule} & \textbf{retention} & \textbf{cov.} & \textbf{mass/token} & \textbf{vs random} & \textbf{J(entropy)} \\
+\midrule
+sentence-initial word      & 0.026 & 0.094 & \up{3.616} & 3.12$\times$ & 0.10 \\
+connectives                & 0.029 & 0.088 & \up{3.073} & 2.42$\times$ & 0.11 \\
+all words $\geq2$ letters  & 0.287 & 0.523 & 1.825 & 1.48$\times$ & 0.38 \\
+\texttt{text\_only}        & 0.410 & 0.726 & \up{1.771} & 1.43$\times$ & 0.58 \\
+\texttt{math\_only}        & 0.638 & 0.348 & \dn{0.546} & \dn{0.63$\times$} & 0.32 \\
+\bottomrule
+\end{tabular}}
+
+\flushleft
+\vspace{0.8em}
+\textbf{The premise fails.} \texttt{math\_only} captures \emph{less} signal than a
+budget-matched random mask. Its complement captures 1.43$\times$.
+
+\medskip
+\textbf{Not a cheap copy of entropy.} Sentence-initial reaches 75\% of paid entropy's
+coverage at Jaccard \textbf{0.10} --- a different high-signal set, found by regex.
+
+\medskip
+\aside{\texttt{kl} is omitted: it selects on very nearly the quantity being measured, so its coverage is tautological.}
+
+\end{frame}
+
+% ---------------------------------------------------------------- 4
+\begin{frame}{Table 2 --- does capturing the signal help? \dn{No}}
+
+\aside{Fixed lr $1\times10^{-5}$, 120 steps, 32 rollouts/step, \textbf{3 seeds each}.
+Train DAPO-Math-17K (en). Eval MATH500, 500 problems $\times4$. Statistics across seeds.}
+
+\vspace{0.8em}
+\centering
+{\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{arm} & \textbf{mass/token} & \textbf{MATH500} & \textbf{over untrained} \\
+\midrule
+\texttt{math\_only}          & \dn{0.55} \aside{(worst)} & \up{0.7580 $\pm$ 0.0120} & $+0.059$ \\
+\texttt{vanilla} (all tokens)& 1.00                      & 0.7363 $\pm$ 0.0090      & $+0.037$ \\
+\texttt{text\_only}          & \up{1.77} \aside{(best)}  & \dn{0.7072 $\pm$ 0.0210} & $+0.008$ \\
+\midrule
+\emph{untrained student}     & ---                       & \emph{0.6990}            & --- \\
+\bottomrule
+\end{tabular}}
+
+\vspace{0.8em}
+{\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{contrast} & $\boldsymbol{\Delta}$ & $\boldsymbol{p}$ \\
+\midrule
+\texttt{text\_only} vs \texttt{math\_only} & $-0.0508$ & \up{0.022} \\
+\texttt{text\_only} vs \texttt{vanilla}    & $-0.0292$ & 0.092 \\
+\texttt{text\_only} vs untrained           & $+0.0082$ & \dn{0.570} \\
+\bottomrule
+\end{tabular}}
+
+\flushleft
+\vspace{0.6em}
+\textbf{Ranked by mass/token: \texttt{text\_only} $>$ \texttt{vanilla} $>$ \texttt{math\_only}.
+Ranked by accuracy: exactly reversed.} The arm that best satisfies the selection criterion is
+indistinguishable from not training at all.
+
+\end{frame}
+
+% ---------------------------------------------------------------- 5
+\begin{frame}{Table 3 --- matched-budget control: \emph{how many} vs \emph{which}}
+
+\aside{Every masked arm changes two things at once: the \textbf{budget} (how many positions
+receive gradient) and the \textbf{selection} (which ones). A flat-rate random mask holds the
+first fixed and makes the second uninformative, so the two can be priced separately.}
+
+\vspace{0.4em}
+\begin{block}{\small flat-rate random mask at rate $r$}
+\small At every optimizer step, for each rollout independently, draw
+$\mathrm{round}(r\cdot n)$ of its $n$ completion tokens uniformly without replacement;
+gradient flows only there. Redrawn each step, blind to token content.
+\aside{Measured retention over 120 steps: 0.6399 against a 0.64 target.}
+\end{block}
+
+\vspace{0.5em}
+\centering
+{\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{arm} & \textbf{retention} & \textbf{mass/token} & \textbf{MATH500} \\
+\midrule
+\texttt{math\_only}           & 0.638 & \dn{0.55} & \up{0.7580 $\pm$ 0.0120} \\
+\texttt{random} @0.64 budget  & 0.640 & 0.86      & 0.7337 $\pm$ 0.0081 \\
+\texttt{vanilla}              & 1.000 & 1.00      & 0.7363 $\pm$ 0.0090 \\
+\midrule
+\emph{untrained student}      & ---   & ---       & \emph{0.6990} \\
+\bottomrule
+\end{tabular}}
+
+\vspace{0.7em}
+{\small
+\begin{tabular}{@{}llrr@{}}
+\toprule
+\textbf{contrast} & \textbf{prices} & $\boldsymbol{\Delta}$ & $\boldsymbol{p}$ \\
+\midrule
+\texttt{random}@0.64 vs \texttt{vanilla}   & the budget alone    & $-0.0027$ & \dn{0.722} \\
+\texttt{math\_only} vs \texttt{random}@0.64 & the selection alone & \up{$+0.0243$} & \up{0.052} \\
+\texttt{math\_only} vs \texttt{vanilla}     & both together       & $+0.0217$ & 0.072 \\
+\bottomrule
+\end{tabular}}
+
+\flushleft
+\vspace{0.6em}
+\textbf{The budget is free; the selection is the whole effect.}
+Withholding gradient from 36\% of completion tokens \emph{at random} costs nothing
+($p=0.722$). It decomposes exactly: $+0.0243+(-0.0027)=+0.0216$.
+
+\medskip
+\aside{Same protocol as Table 2 --- lr $1\times10^{-5}$ constant, 120 steps, 32 rollouts/step,
+3 seeds, train DAPO-Math-17K (en), eval MATH500 $\times4$, Welch $t$ on seed means. $+0.0243$
+clears the 3-seed minimum detectable difference of $0.018$; $+0.0217$ did not.}
+
+\end{frame}
+
+% ---------------------------------------------------------------- 6
+\begin{frame}{Table 4 --- mass/token at a \emph{single} fixed budget}
+
+The obvious objection to Table 2 is that its three arms differ in \emph{budget} as well as
+selection, so the reversal could be an artifact of how many tokens each one trains on.
+The matched-budget control removes that reading.
+
+\vspace{0.8em}
+\centering
+{\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{selection, all at retention 0.64} & \textbf{mass/token} & \textbf{MATH500} \\
+\midrule
+\texttt{math\_only} \aside{(lowest mass)}   & \dn{0.55} & \up{0.7580 $\pm$ 0.0120} \\
+\texttt{random}                              & 0.86      & 0.7337 $\pm$ 0.0081 \\
+\texttt{entropy} top-$k$ \aside{(highest mass)} & \up{1.48} & \aside{not trained} \\
+\bottomrule
+\end{tabular}}
+
+\flushleft
+\vspace{0.9em}
+\textbf{At one fixed budget, the lower-mass selection wins by $0.024$.} The metric
+anti-predicts \emph{within} a matched budget, not only across arms that spend different
+amounts --- which is the stronger form of the claim.
+
+\medskip
+\aside{\texttt{entropy} is budget-matched and implemented but was never trained to completion;
+it is shown here only to place the mass axis. Training it is the one experiment that would
+close this table.}
+
+\end{frame}
+
+% ---------------------------------------------------------------- 7
+\begin{frame}{Table 5 --- \texttt{math\_only} vs \texttt{vanilla} across learning rates}
+
+\aside{18 runs: 2 arms $\times$ 3 learning rates $\times$ 3 seeds. 120 steps, constant LR.
+Train DAPO-Math-17K (en). Eval MATH500 $\times4$. Welch $t$ on seed means.}
+
+\vspace{0.8em}
+\centering
+{\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{lr} & \textbf{vanilla} & \textbf{math\_only} & $\boldsymbol{\Delta}$ & $\boldsymbol{p}$ \\
+\midrule
+3e-6 & 0.7580 $\pm$ 0.0079 & 0.7492 $\pm$ 0.0049 & $-0.0088$ & 0.188 \\
+1e-5 & 0.7363 $\pm$ 0.0090 & 0.7580 $\pm$ 0.0120 & $+0.0217$ & 0.072 \\
+3e-5 & 0.7190 $\pm$ 0.0078 & 0.7305 $\pm$ 0.0067 & $+0.0115$ & 0.127 \\
+\midrule
+\multicolumn{3}{@{}l}{pooled, LR-centred (9 runs vs 9)} & $+0.0081$ & 0.10 \\
+\bottomrule
+\end{tabular}}
+
+\flushleft
+\vspace{0.8em}
+\textbf{No difference at any rate.} Both arms peak at exactly \textbf{0.7580}.
+
+\medskip
+\textbf{The learning rate dominates the mask}: it moves accuracy by \textbf{0.039}
+(0.7580 $\rightarrow$ 0.7190 for \texttt{vanilla}), five times the largest arm difference.
+
+\medskip
+\aside{Seed noise floor, same config repeated three times: SD $=0.0079$, so 3 seeds resolve
+$\approx0.018$ at 80\% power. LR-sensitivity difference $+0.0115$, 95\% CI $[-0.0043,+0.0273]$
+--- contains zero.}
+
+\end{frame}
+
+% ---------------------------------------------------------------- 8
+\begin{frame}{Table 6 --- the compute claim}
+
+The teacher pass is two computations; the claim turns on separating them.
+
+\vspace{0.6em}
+\centering
+{\small
+\begin{tabular}{@{}lrl@{}}
+\toprule
+\textbf{stage} & \textbf{share of pass} & \textbf{restrictable to a subset?} \\
+\midrule
+backbone (transformer layers)     & \dn{88.4\%} & no --- position $t$ needs all before it \\
+\texttt{lm\_head} projection $2560\times151{,}936$ & \up{11.6\%} & yes --- independent per position \\
+\bottomrule
+\end{tabular}}
+
+\vspace{0.9em}
+{\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{arm} & \textbf{share of teacher pass saved} \\
+\midrule
+\texttt{math\_only} & 4.2\% \\
+\texttt{text\_only} & 6.9\% \\
+\emph{a mask selecting nothing} & \emph{11.6\%} \aside{(hard ceiling)} \\
+\texttt{entropy} / \texttt{kl} & \dn{0\%} \aside{must project everything to select} \\
+\bottomrule
+\end{tabular}}
+
+\flushleft
+\vspace{0.8em}
+\aside{Measured on 100 rollouts, Qwen3-4B-Instruct-2507, 1$\times$A6000: backbone 21.59\,s,
+projection 2.84\,s over 172{,}450 completion tokens. Projection cost is linear in positions
+(16.5 vs 16.8\,$\mu$s per 1k). TRL's \texttt{\_chunked\_divergence\_loss} already performs the
+masked projection, so this saving sits in the \emph{baseline} trainer.}
+
+\end{frame}
+
+% ---------------------------------------------------------------- 9
+\begin{frame}{Conclusion}
+
+\begin{enumerate}
+  \item \textbf{Gradient-mass coverage anti-predicts accuracy.} Across three arms spanning
+        0.55--1.77 mass/token, the accuracy ordering is exactly reversed
+        ($p=0.022$ between the extremes).
+  \item The metric would have selected \texttt{text\_only} --- which does not beat the
+        untrained student ($p=0.570$).
+  \item \textbf{Why, most likely:} high divergence marks \emph{arbitrariness} as readily as
+        information. Prose diverges because phrasing is underdetermined --- many wordings are
+        correct, so the models disagree without either being wrong. Notation agrees because it
+        is \emph{determined}. \aside{Inferred, not demonstrated.}
+  \item \textbf{The budget is free; the selection is the effect.} At a matched budget of 0.64,
+        a uniform random mask is indistinguishable from training on all tokens ($-0.003$,
+        $p=0.722$) --- so 36\% of completion tokens can be dropped at no cost --- while
+        \texttt{math\_only} beats that same random mask by $+0.024$ ($p=0.052$). All of
+        \texttt{math\_only}'s advantage is \emph{which} tokens it keeps, not how many.
+  \item Across learning rates the regex \textbf{matches} full-token OPD; it does not beat it
+        outright. The learning rate moves accuracy 5$\times$ more than the mask does.
+  \item The teacher-side compute saving is real and \textbf{capped at 11.6\%}.
+\end{enumerate}
+
+\vspace{0.6em}
+\begin{block}{Not established}
+\small
+One teacher--student pair (4.02\,B$\rightarrow$2.03\,B), one training set, one benchmark
+carrying the result (MATH500; AMC23 at 40 problems and AIME at 30 cannot resolve $0.02$).
+\texttt{kl} and \texttt{entropy} are built and budget-matched but never trained to completion,
+so the top row of Table 4 is empty. Three seeds is fragile: one added seed moved a $p$ from
+0.040 to 0.072, and the headline $p=0.052$ sits on the wrong side of the usual threshold.
+\end{block}
+
+\end{frame}
+
+\end{document}

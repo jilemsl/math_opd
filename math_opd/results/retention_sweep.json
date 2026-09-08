@@ -1,0 +1,85 @@
+{
+ "question": "Does accuracy depend on HOW MANY completion tokens carry gradient, independently of WHICH ones? A uniform random mask at each rate isolates the budget.",
+ "design": "lr 1e-5 constant, 120 steps, 32 rollouts/step, DAPO-Math-17K (en); eval MATH500, 500 problems x 4 samples, greedy-free sampling seed 0. The random mask is redrawn uniformly over each batch's completion tokens every step.",
+ "untrained_base": 0.699,
+ "cells": {
+  "text_only": {
+   "retention": 0.41,
+   "seeds": [
+    0.683,
+    0.721,
+    0.7175
+   ],
+   "mean": 0.7072,
+   "sd": 0.021
+  },
+  "math_only": {
+   "retention": 0.638,
+   "seeds": [
+    0.759,
+    0.7695,
+    0.7455
+   ],
+   "mean": 0.758,
+   "sd": 0.012
+  },
+  "vanilla": {
+   "retention": 1.0,
+   "seeds": [
+    0.726,
+    0.7405,
+    0.7425
+   ],
+   "mean": 0.7363,
+   "sd": 0.009
+  },
+  "random@0.41": {
+   "retention": 0.41,
+   "seeds": [
+    0.7195,
+    0.7255
+   ],
+   "mean": 0.7225,
+   "sd": 0.0042
+  },
+  "random@0.64": {
+   "retention": 0.64,
+   "seeds": [
+    0.735,
+    0.741,
+    0.725
+   ],
+   "mean": 0.7337,
+   "sd": 0.0081
+  }
+ },
+ "tests": {
+  "random@0.64_vs_math_only": {
+   "delta": -0.0243,
+   "t": -2.908,
+   "p": 0.0515
+  },
+  "random@0.41_vs_text_only": {
+   "delta": 0.0153,
+   "t": 1.228,
+   "p": 0.3331
+  },
+  "random@0.64_vs_vanilla": {
+   "delta": -0.0027,
+   "t": -0.382,
+   "p": 0.7223
+  },
+  "random@0.41_vs_random@0.64": {
+   "delta": -0.0112,
+   "t": -2.013,
+   "p": 0.1383
+  }
+ },
+ "missing": [
+  "g_rnd020_s*.json",
+  "g_rnd085_s*.json"
+ ],
+ "incomplete_cells": [
+  "random@0.41"
+ ]
+}

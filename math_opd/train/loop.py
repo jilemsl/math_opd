@@ -34,6 +34,15 @@ def build_dataset(n_prompts: int, g: int, seed: int) -> Dataset:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Train one arm of the lexical-mask OPD experiment")
     ap.add_argument("--arm", type=str, default="v0")
+    ap.add_argument(
+        "--budget-variant", type=str, default="v0", help="mask whose per-batch retention the baselines must match"
+    )
+    ap.add_argument(
+        "--random-retention",
+        type=float,
+        default=None,
+        help="for `--arm random`: keep this flat fraction of completion tokens instead of matching a mask's budget",
+    )
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--student", type=str, default="Qwen/Qwen3-1.7B")
     ap.add_argument("--teacher", type=str, default="Qwen/Qwen3-4B-Instruct-2507")
@@ -54,6 +63,8 @@ def main() -> int:
     config = MaskedDistillationConfig(
         output_dir=args.output_dir,
         arm=args.arm,
+        budget_variant=args.budget_variant,
+        random_retention=args.random_retention,
         seed=args.seed,
         mask_seed=args.seed,
         # Qwen3's chat template defaults to *thinking* mode: without this the

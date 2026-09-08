@@ -35,6 +35,7 @@ class MaskedDistillationConfig(DistillationConfig):
         arm: str = "vanilla",
         budget_variant: str = "v0",
         mask_seed: int = 0,
+        random_retention: float | None = None,
         normalize_by_selected: bool = True,
         **kwargs,
     ):
@@ -44,6 +45,7 @@ class MaskedDistillationConfig(DistillationConfig):
         self.arm = arm
         self.budget_variant = budget_variant
         self.mask_seed = mask_seed
+        self.random_retention = random_retention
         self.normalize_by_selected = normalize_by_selected
 
 
@@ -62,6 +64,7 @@ class MaskedDistillationTrainer(DistillationTrainer):
         self.arm = self.args.arm
         self.budget_variant = self.args.budget_variant
         self.mask_seed = self.args.mask_seed
+        self.random_retention = self.args.random_retention
         self.normalize_by_selected = self.args.normalize_by_selected
 
     def _selection_scores(self, inputs: dict) -> torch.Tensor:
@@ -112,6 +115,20 @@ class MaskedDistillationTrainer(DistillationTrainer):
 
         if self.arm in LEXICAL_ARMS:
             return lexical_batch_mask(tok, completion_ids, completion_mask, self.arm)
+
+        if self.arm == "random" and self.random_retention is not None:
+            # Sweep mode: a flat retention rate rather than a mask's budget, so
+            # accuracy can be read as a function of *how many* tokens are kept,
+            # independent of which. Uniform over valid positions -- there is no
+            # target profile to stratify against.
+            rng = torch.Generator(device="cpu").manual_seed(self.mask_seed + self.state.global_step)
+            out = torch.zeros_like(completion_mask, dtype=torch.float32)
+            for b in range(completion_mask.size(0)):
+                idx = completion_mask[b].nonzero(as_tuple=True)[0]
+                k = int(round(self.random_retention * idx.numel()))
+                if k > 0:
+                    out[b, idx[torch.randperm(idx.numel(), generator=rng)[:k]]] = 1.0
+            return out
 
         # Baselines are budget-matched to the headline mask on *this* batch.
         target = lexical_batch_mask(tok, completion_ids, completion_mask, self.budget_variant)
