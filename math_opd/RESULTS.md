@@ -13,7 +13,14 @@ identically (lr 1e-5, 120 steps, 3 seeds) on MATH500:
 v0c vs v0: −0.051, p=0.022. v0c vs untrained: p=0.570. Ranked by mass the order is
 v0c > plain > v0; by accuracy it is exactly reversed. See `results/mass_vs_accuracy.json`.
 
-## 0b. Matched-budget control: the budget is free, the selection is the effect
+**What survives a change of learning rate, and what does not** (§0b). The *budget* null is
+robust: a uniform random mask matches full-token OPD at every retention from 0.20 to 1.00, and
+at both 1e-5 and 3e-6. The *selection* effect is not: math_only beats a budget-matched random
+mask by +0.024 at 1e-5 and by −0.006 at 3e-6. Every arm at either rate tops out at 0.758, so
+the mask recovers what an over-large rate loses rather than beating a tuned baseline. The
+anti-prediction above stands as a statement about the metric, not as a better mask.
+
+## 0b. Matched-budget control: budget is free at every rate, selection only at 1e-5
 
 `results/retention_sweep.json`. A **flat-rate random mask at rate r** gives gradient to
 `round(r·n)` of each rollout's `n` completion tokens, drawn uniformly without replacement and
@@ -70,10 +77,28 @@ This also removes the obvious objection to §0, where the three arms differed in
 as selection. Here budget is held fixed and the lower-mass selection still wins: the metric
 anti-predicts **within** a matched budget.
 
-**Caveat.** One learning rate. The math_only-vs-vanilla contrast changed sign across rates
-(−0.0088 at 3e-6, +0.0217 at 1e-5), but that contrast confounds budget with selection; the
-matched-budget contrast has not been run at a second rate. p=0.052 is marginal, though the
-effect clears the 3-seed minimum detectable difference of 0.018.
+### The same control at 3e-6: budget replicates, selection does not
+
+3 seeds per cell, otherwise identical.
+
+| lr | selection (math_only − random@0.64) | p | budget (random@0.64 − vanilla) | p |
+|---|---|---|---|---|
+| 3e-6 | **−0.0058** | 0.173 | −0.0030 | 0.599 |
+| 1e-5 | **+0.0243** | 0.052 | −0.0027 | 0.722 |
+
+**The budget result is rate-robust** — zero at both rates, on top of the flat 0.20→1.00 sweep.
+**The selection result is not.** It exists at 1e-5 and is gone, slightly negative, at 3e-6.
+
+Cells at 3e-6: math_only 0.7492 ± 0.0045, random@0.64 0.7550 ± 0.0041, vanilla 0.7580 ± 0.0079.
+
+The pattern across both rates: vanilla scores 0.7580 at 3e-6 and degrades to 0.7363 at 1e-5;
+math_only scores 0.7580 at 1e-5. **Every arm at either rate tops out at the same 0.758.** The
+mask recovers ground an over-large rate loses — it does not add anything a well-tuned baseline
+lacks. This is consistent with the length-inflation reading (§4): math_only clips at 0.569 vs
+vanilla's 0.584 at 1e-5, and the gap closes at lower rates.
+
+**Caveat.** p=0.052 at 1e-5 is marginal, though the effect clears the 3-seed minimum detectable
+difference of 0.018. random@0.20 and random@0.85 have 2 seeds, not 3.
 
 ## 1. Headline: v0 vs vanilla — 18 runs, 3 seeds per cell
 
@@ -175,21 +200,32 @@ can be skipped, and for Qwen3-4B that is 11.6% of the pass (backbone 88.4%).
 is real but single-digit. TRL's `_chunked_divergence_loss` already does the masked
 projection, so this saving is in the baseline trainer, not added by this work.
 
-## 6. AIME 24/25/26 (×32)
+## 6. AIME 24/25/26 — 3 seeds per arm
 
-| model | AIME24 | AIME25 | AIME26 |
-|---|---|---|---|
-| base | 0.1073 | 0.0854 | 0.0740 |
-| van3e6 | 0.1844 | 0.1625 | 0.1406 |
-| v03e6 | 0.1958 | — | — |
-| van1e5 | 0.1729 | 0.1854 | 0.1490 |
-| v01e5 | 0.1635 | 0.1635 | — |
+`results/aime_seeds.json`. math_only vs vanilla, both lr 1e-5 constant, 120 steps, 3 training
+seeds each. 30 problems × 32 samples per year, eval seed fixed at 0 so cells differ only by
+training seed.
 
-**Underpowered at this model scale, as the spec anticipated.** 30 problems per
-year gives 95% CIs of roughly ±0.10 — wide enough to contain both zero and the
-+0.03 effect MATH500 resolves. Training clearly lifts AIME over base
-(0.107 → 0.16–0.20 on AIME24), but the v0-vs-vanilla ordering is inconsistent
-across years and should not be read as signal.
+| year | vanilla | math_only | Δ | p |
+|---|---|---|---|---|
+| AIME24 | 0.1688 ± 0.0053 | 0.1754 ± 0.0075 | +0.0066 | 0.289 |
+| AIME25 | 0.1774 ± 0.0069 | 0.1732 ± 0.0084 | −0.0042 | 0.543 |
+| AIME26 | 0.1455 ± 0.0044 | 0.1472 ± 0.0102 | +0.0017 | 0.810 |
+
+Untrained base: 0.1073 / 0.0854 / 0.0740.
+
+**Null on all three years**, signs inconsistent, every |Δ| ≤ 0.008. Training lifts AIME well
+clear of base (0.107 → ~0.17 on AIME24), but **the MATH500 math_only advantage at 1e-5
+(+0.0217) does not transfer.** Consistent with §0b's 3e-6 control: the mask recovers ground an
+over-large rate loses rather than adding a transferable gain.
+
+**Correction to an earlier claim.** This section previously called AIME underpowered from a
+±0.10 binomial CI. That is the CI on *one model's absolute accuracy* over 30 problems — the
+wrong statistic for a contrast. Both arms are scored on the same 30 problems, so problem
+difficulty is common to both and cancels. The limiting quantity is the training-seed SD,
+measured here at **0.004–0.011**, giving a 3-seed MDE near **0.03** — wider than MATH500's
+0.018, but far tighter than 0.10. AIME is precise enough to have seen a MATH500-sized effect.
+It isn't there.
 
 ## 6b. Seed noise floor — is any of this real?
 

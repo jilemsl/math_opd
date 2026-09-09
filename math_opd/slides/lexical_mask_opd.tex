@@ -242,14 +242,58 @@ seed SD $\approx0.008$.}
 \end{columns}
 
 \vspace{0.5em}
-\textbf{The budget does nothing; the selection is the whole effect.} Four fifths of the
-completion can be dropped \emph{at random} for free. Exact decomposition:
-$+0.0243+(-0.0027)=+0.0216$.
+\textbf{The budget does nothing; the selection is the whole effect} --- \emph{at this rate}.
+Four fifths of the completion can be dropped \emph{at random} for free. Exact decomposition:
+$+0.0243+(-0.0027)=+0.0216$. \dn{The selection half does not survive a change of learning
+rate: see the next slide.}
 
 \end{frame}
 
 % ---------------------------------------------------------------- 6
-\begin{frame}{Table 4 --- mass/token at a \emph{single} fixed budget}
+\begin{frame}{Table 4 --- the same control at 3e-6: only half of it replicates}
+
+\aside{Identical protocol, 3 seeds per cell, only the learning rate changed.}
+
+\vspace{0.9em}
+\centering
+{\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{lr} & \textbf{selection} & $\boldsymbol{p}$ & \textbf{budget} & $\boldsymbol{p}$ \\
+ & \aside{\texttt{math\_only} $-$ \texttt{random}} & & \aside{\texttt{random} $-$ \texttt{vanilla}} & \\
+\midrule
+3e-6 & \dn{$-0.0058$} & 0.173 & $-0.0030$ & 0.599 \\
+1e-5 & \up{$+0.0243$} & 0.052 & $-0.0027$ & 0.722 \\
+\bottomrule
+\end{tabular}}
+
+\vspace{0.9em}
+{\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{arm} & \textbf{3e-6} & \textbf{1e-5} \\
+\midrule
+\texttt{vanilla}      & \up{0.7580 $\pm$ 0.0079} & 0.7363 $\pm$ 0.0090 \\
+\texttt{random} @0.64 & 0.7550 $\pm$ 0.0041      & 0.7337 $\pm$ 0.0081 \\
+\texttt{math\_only}   & 0.7492 $\pm$ 0.0045      & \up{0.7580 $\pm$ 0.0120} \\
+\bottomrule
+\end{tabular}}
+
+\flushleft
+\vspace{0.8em}
+\textbf{The budget result is rate-robust; the selection result is not.} Every arm at either
+rate tops out at the same \textbf{0.758}. \texttt{vanilla} loses $0.022$ going from 3e-6 to
+1e-5 and \texttt{math\_only} recovers exactly that --- \textbf{the mask repairs damage from an
+over-large rate rather than adding anything a tuned baseline lacks}.
+
+\medskip
+\aside{Consistent with length inflation: \texttt{math\_only} clips at 4096 on 0.569 of rollouts
+vs \texttt{vanilla}'s 0.584 at 1e-5, and the gap closes at lower rates.}
+
+\end{frame}
+
+% ---------------------------------------------------------------- 7
+\begin{frame}{Table 5 --- mass/token at a \emph{single} fixed budget}
 
 The obvious objection to Table 2 is that its three arms differ in \emph{budget} as well as
 selection, so the reversal could be an artifact of how many tokens each one trains on.
@@ -288,7 +332,7 @@ close this table.}
 \end{frame}
 
 % ---------------------------------------------------------------- 7
-\begin{frame}{Table 5 --- \texttt{math\_only} vs \texttt{vanilla} across learning rates}
+\begin{frame}{Table 6 --- \texttt{math\_only} vs \texttt{vanilla} across learning rates}
 
 \aside{18 runs: 2 arms $\times$ 3 learning rates $\times$ 3 seeds. 120 steps, constant LR.
 Train DAPO-Math-17K (en). Eval MATH500 $\times4$. Welch $t$ on seed means.}
@@ -322,15 +366,14 @@ $\approx0.018$ at 80\% power. LR-sensitivity difference $+0.0115$, 95\% CI $[-0.
 --- contains zero.}
 
 \medskip
-\textbf{But this is the wrong control.} \texttt{vanilla} differs from \texttt{math\_only} in
-budget \emph{and} selection, so its sign can flip for reasons unrelated to the mask. Table 3
-replaces it with a same-budget control. \aside{That control exists at one rate only ---
-re-running it at 3e-6, where this table is negative, is the open experiment.}
+\textbf{This is the wrong control} --- \texttt{vanilla} differs from \texttt{math\_only} in
+budget \emph{and} selection --- but replacing it with the same-budget control (Tables 3--4)
+does not rescue the arm: the selection effect is itself rate-dependent.
 
 \end{frame}
 
 % ---------------------------------------------------------------- 8
-\begin{frame}{Table 6 --- the compute claim}
+\begin{frame}{Table 7 --- the compute claim}
 
 The teacher pass is two computations; the claim turns on separating them.
 
@@ -381,14 +424,15 @@ masked projection, so this saving sits in the \emph{baseline} trainer.}
         information. Prose diverges because phrasing is underdetermined --- many wordings are
         correct, so the models disagree without either being wrong. Notation agrees because it
         is \emph{determined}. \aside{Inferred, not demonstrated.}
-  \item \textbf{The budget does nothing; the selection is the effect.} Sweeping a uniform
-        random mask from $r=0.20$ to $1.00$ moves accuracy by $0.0143$ in total ---
-        non-monotone, inside seed noise, no rate significantly below full-token OPD. At a
-        matched budget \texttt{math\_only} beats that same random mask by $+0.024$
-        ($p=0.052$). \emph{Which} tokens carry gradient is the only axis that moves anything.
-  \item \textbf{Worth $\approx$\,41\% of what OPD buys.} Distillation gains $+0.059$ over the
-        untrained student; a budget-matched random mask gets $+0.035$ of it, the regex gets
-        all of it.
+  \item \textbf{The budget does nothing, at either rate tested.} Sweeping a uniform random
+        mask from $r=0.20$ to $1.00$ moves accuracy by $0.0143$ in total --- non-monotone,
+        inside seed noise, no rate significantly below full-token OPD --- and the matched-budget
+        null replicates at 3e-6 ($-0.003$, $p=0.599$) as well as 1e-5 ($-0.003$, $p=0.722$).
+        This is the robust result.
+  \item \textbf{Selection matters only at an over-large learning rate.} \texttt{math\_only}
+        beats a budget-matched random mask by $+0.024$ ($p=0.052$) at 1e-5 but by $-0.006$
+        ($p=0.173$) at 3e-6. Every arm at either rate tops out at \textbf{0.758}: the mask
+        recovers what a too-high rate loses and adds nothing to a tuned baseline.
   \item Across learning rates the regex \textbf{matches} full-token OPD; it does not beat it
         outright. The learning rate moves accuracy 5$\times$ more than the mask does.
   \item The teacher-side compute saving is real and \textbf{capped at 11.6\%}.
@@ -398,10 +442,11 @@ masked projection, so this saving sits in the \emph{baseline} trainer.}
 \begin{block}{Not established}
 \small
 One teacher--student pair (4.02\,B$\rightarrow$2.03\,B), one training set, one benchmark
-carrying the result (MATH500; AMC23 at 40 problems and AIME at 30 cannot resolve $0.02$).
-\texttt{kl} and \texttt{entropy} are built and budget-matched but never trained to completion,
-so the top row of Table 4 is empty. Three seeds is fragile: one added seed moved a $p$ from
-0.040 to 0.072, and the headline $p=0.052$ sits on the wrong side of the usual threshold.
+carrying the result. \texttt{kl} and \texttt{entropy} are built and budget-matched but never
+trained to completion, so the top row of Table 5 is empty. Three seeds is fragile: one added
+seed moved a $p$ from 0.040 to 0.072, and the $p=0.052$ at 1e-5 sits on the wrong side of the
+usual threshold. \textbf{Two learning rates is not a curve} --- the selection effect may peak
+between them, or be specific to 1e-5.
 \end{block}
 
 \end{frame}
