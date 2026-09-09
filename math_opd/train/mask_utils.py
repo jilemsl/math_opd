@@ -16,7 +16,10 @@ from ..masks.variants import VARIANTS, variant_char_ranges
 
 
 LEXICAL_ARMS = VARIANTS
-SCORED_ARMS = ("entropy", "kl")
+#: Arms that must project every position to the vocabulary before they can
+#: select. `rkl_min`/`rkl_max` score on the trainer's own per-token loss, so
+#: they bound the gradient-mass axis from below and above at a fixed budget.
+SCORED_ARMS = ("entropy", "kl", "rkl_min", "rkl_max")
 ARMS = ("vanilla", "random", *SCORED_ARMS, *LEXICAL_ARMS)
 
 

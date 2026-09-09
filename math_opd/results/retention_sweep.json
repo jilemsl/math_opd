@@ -191,5 +191,39 @@
    "p": 0.5986
   },
   "finding": "The matched-budget control re-run at 3e-6. The BUDGET effect replicates and stays zero (-0.0030, p=0.599, against -0.0027, p=0.722 at 1e-5). The SELECTION effect does NOT: +0.0243 at 1e-5 becomes -0.0058 at 3e-6. Selection matters only at the higher rate, where vanilla has degraded from 0.7580 to 0.7363; the mask recovers exactly that lost ground and no more. Every arm at either rate tops out at 0.758, so the mask repairs damage from an over-large learning rate rather than adding anything a well-tuned baseline lacks."
+ },
+ "rkl_min_arm": {
+  "definition": "At each step, per rollout, keep the round(alpha*n) completion tokens with the SMALLEST per-token reverse KL -- KL(student||teacher), the trainer's own beta=1 loss. Budget-matched to v0 per batch. Implemented as top-k of the negated score.",
+  "cells": {
+   "rkl_min": {
+    "mean": 0.7428,
+    "sd": 0.0067,
+    "seeds": [
+     0.7505,
+     0.7395,
+     0.7385
+    ],
+    "retention": 0.6336,
+    "mass_per_token": 0.0248,
+    "train_loss_first": 0.00232,
+    "train_loss_last": 0.00059
+   }
+  },
+  "tests": {
+   "vs_random@0.64": {
+    "delta": 0.0092,
+    "p": 0.2066
+   },
+   "vs_vanilla": {
+    "delta": 0.0065,
+    "p": 0.3761
+   },
+   "vs_math_only": {
+    "delta": -0.0152,
+    "p": 0.1485
+   }
+  },
+  "finding": "Training on the tokens that contribute LEAST to the loss works. rkl_min captures 1.6% of the total divergence and trains at a loss of 0.0006 against vanilla's ~0.25 -- roughly 400x smaller -- and still edges out full-token OPD (+0.0065) and a budget-matched random draw (+0.0092). All three contrasts are null at 3 seeds; the point is that it works at all. Adam's update is invariant to a global rescaling of the loss, so the collapsed loss scale does not act as a reduced learning rate.",
+  "breaks_the_linear_law": "The 5-arm fit acc = 0.7742 - 0.0395*mass_per_token (r^2=0.93 over mass 0.55-1.77) predicts 0.7732 at mass 0.0248. Observed 0.7428, residual -0.0304 against +-0.007 for every other arm. Refitting with this point drops r^2 to 0.70. mass/token predicts well over its measured range and fails below it: there is an interior optimum near math_only's 0.55, not a monotone 'lower is better'."
  }
 }

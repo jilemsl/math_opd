@@ -84,6 +84,12 @@ def main() -> int:
     ap.add_argument("--alpha", type=float, default=0.638, help="budget to match; v0's measured retention")
     ap.add_argument("--limit", type=int, default=200)
     ap.add_argument("--examples", type=int, default=40, help="selected tokens to record verbatim, per arm")
+    ap.add_argument(
+        "--drop-fractions",
+        type=str,
+        default="0.01,0.02,0.05,0.10,0.15,0.20,0.30,0.362,0.50",
+        help="delta grid for the drop-the-top-delta curve: keep the (1-delta) lowest-`D_t` tokens",
+    )
     ap.add_argument("--out", type=str, required=True)
     args = ap.parse_args()
 
@@ -98,6 +104,9 @@ def main() -> int:
     composition = {a: {} for a in arms}
     examples = {a: [] for a in arms}
     overlap_min_v0, overlap_max_v0 = [], []
+    deltas = [float(x) for x in args.drop_fractions.split(",")]
+    drop_mass = dict.fromkeys(deltas, 0.0)
+    drop_kept = dict.fromkeys(deltas, 0)
     total_mass = 0.0
     total_tokens = 0
 
@@ -139,6 +148,15 @@ def main() -> int:
         overlap_min_v0.append(jaccard(masks["oracle_min"], masks["v0"]))
         overlap_max_v0.append(jaccard(masks["oracle_max"], masks["v0"]))
 
+        # "Drop the top delta by divergence" is the same family as bottom-k,
+        # reparameterized: keeping the (1-delta) lowest is dropping the top
+        # delta. What the curve settles is which delta leaves a trainable loss.
+        order = np.argsort(div)
+        for delta in deltas:
+            keep = order[: len(div) - int(round(delta * len(div)))]
+            drop_mass[delta] += float(div[keep].sum())
+            drop_kept[delta] += len(keep)
+
     mean_div_all = total_mass / max(total_tokens, 1)
     out = {
         "n_rollouts": len(rows),
@@ -167,6 +185,20 @@ def main() -> int:
             "example_tokens": examples[a],
         }
 
+    # For each delta: what fraction of tokens survives, what fraction of the
+    # divergence survives with them, and how far the mean per-token loss -- and
+    # so the gradient, and so the effective learning rate -- moves.
+    out["drop_top_delta_curve"] = {
+        f"{delta:g}": {
+            "retention": drop_kept[delta] / max(total_tokens, 1),
+            "gradient_mass_coverage": drop_mass[delta] / max(total_mass, 1e-12),
+            "mass_per_token": (drop_mass[delta] / max(total_mass, 1e-12))
+            / max(drop_kept[delta] / max(total_tokens, 1), 1e-12),
+            "loss_scale_ratio": (drop_mass[delta] / max(drop_kept[delta], 1)) / mean_div_all,
+        }
+        for delta in deltas
+    }
+
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps(out, indent=2), encoding="utf-8")
     for a in arms:
@@ -176,6 +208,14 @@ def main() -> int:
             f"mass/tok={d['mass_per_token']:.4f} loss_scale={d['loss_scale_ratio']:.4f}"
         )
         print(f"            {dict(list(d['composition'].items())[:5])}")
+    print("\ndrop-top-delta curve:")
+    print(f"  {'delta':>7} {'retention':>10} {'coverage':>10} {'mass/tok':>10} {'loss_scale':>11}")
+    for delta in deltas:
+        c = out["drop_top_delta_curve"][f"{delta:g}"]
+        print(
+            f"  {delta:7g} {c['retention']:10.4f} {c['gradient_mass_coverage']:10.4f} "
+            f"{c['mass_per_token']:10.4f} {c['loss_scale_ratio']:11.4f}"
+        )
     print(f"wrote {args.out}")
     return 0
 

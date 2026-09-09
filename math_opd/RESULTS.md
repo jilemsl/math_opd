@@ -77,6 +77,49 @@ This also removes the obvious objection to §0, where the three arms differed in
 as selection. Here budget is held fixed and the lower-mass selection still wins: the metric
 anti-predicts **within** a matched budget.
 
+### The mass/token law, and where it breaks
+
+At lr 1e-5, five arms spanning three different budgets fall on one line in mass/token:
+
+`accuracy = 0.7742 − 0.0395 × mass/token`, **r² = 0.93**, every residual under the seed SD.
+
+| arm | retention | mass/token | MATH500 | fit | resid |
+|---|---|---|---|---|---|
+| math_only | 0.64 | 0.55 | 0.7580 | 0.7526 | +0.0054 |
+| random | 0.64 | 0.86 | 0.7337 | 0.7403 | −0.0066 |
+| vanilla | 1.00 | 1.00 | 0.7363 | 0.7347 | +0.0016 |
+| random | 0.41 | 1.24 | 0.7220 | 0.7253 | −0.0033 |
+| text_only | 0.41 | 1.77 | 0.7072 | 0.7042 | +0.0030 |
+
+**The slope is negative.** The metric the field selects tokens by predicts accuracy backwards,
+and does so tightly enough to be a law over this range.
+
+### `rkl_min`: training on the tokens that carry no loss
+
+The oracle floor of the axis. At each step, per rollout, keep the `round(α·n)` completion tokens
+with the **smallest** per-token reverse KL — `KL(student‖teacher)`, the trainer's own β=1 loss.
+Budget-matched to v0 per batch. Implemented as top-k of the negated score, `masked_trainer.py`.
+
+| arm | mass/token | MATH500 | vs this arm | Δ | p |
+|---|---|---|---|---|---|
+| math_only | 0.55 | 0.7580 ± 0.0120 | | −0.0152 | 0.149 |
+| **rkl_min** | **0.025** | **0.7428 ± 0.0067** | — | — | — |
+| vanilla | 1.00 | 0.7363 ± 0.0090 | | +0.0065 | 0.376 |
+| random@0.64 | 0.86 | 0.7337 ± 0.0081 | | +0.0092 | 0.207 |
+
+**It captures 1.6% of the divergence and trains at a loss of 0.0006 against vanilla's ~0.25 —
+roughly 400× smaller — and still edges out full-token OPD.** All three contrasts are null at
+three seeds; the result is that it works at all.
+
+Adam's update is invariant to a global rescaling of the loss, so the collapsed loss scale does
+*not* act as a reduced learning rate. An earlier version of this file argued it would. That was
+wrong.
+
+**And it breaks the law.** The 5-arm fit predicts 0.7732 at mass 0.0248; observed 0.7428, a
+residual of **−0.0304** against ±0.007 everywhere else. Refitting with this point drops r² from
+0.93 to **0.70**. So mass/token predicts well over 0.55–1.77 and fails below it: there is an
+interior optimum near math_only's 0.55, not a monotone "lower is better".
+
 ### The same control at 3e-6: budget replicates, selection does not
 
 3 seeds per cell, otherwise identical.

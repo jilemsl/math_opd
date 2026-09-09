@@ -293,7 +293,79 @@ vs \texttt{vanilla}'s 0.584 at 1e-5, and the gap closes at lower rates.}
 \end{frame}
 
 % ---------------------------------------------------------------- 7
-\begin{frame}{Table 5 --- mass/token at a \emph{single} fixed budget}
+\begin{frame}{Table 5 --- one scalar predicts five arms, and its slope is \dn{negative}}
+
+\aside{lr $1\times10^{-5}$, 120 steps, 3 seeds, MATH500. Five arms, \emph{three different
+budgets} --- retention is not held fixed here, and does not need to be: it does not matter.}
+
+\vspace{0.6em}
+\centering
+{\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{arm} & \textbf{retention} & \textbf{mass/token} & \textbf{MATH500} & \textbf{fit} & \textbf{resid} \\
+\midrule
+\texttt{math\_only} & 0.64 & 0.55 & \up{0.7580} & 0.7526 & $+0.0054$ \\
+\texttt{random}     & 0.64 & 0.86 & 0.7337 & 0.7403 & $-0.0066$ \\
+\texttt{vanilla}    & 1.00 & 1.00 & 0.7363 & 0.7347 & $+0.0016$ \\
+\texttt{random}     & 0.41 & 1.24 & 0.7220 & 0.7253 & $-0.0033$ \\
+\texttt{text\_only} & 0.41 & 1.77 & \dn{0.7072} & 0.7042 & $+0.0030$ \\
+\bottomrule
+\end{tabular}}
+
+\vspace{0.9em}
+\begin{block}{}
+\centering\large
+$\text{accuracy} = 0.7742 - 0.0395 \times \text{mass/token}$ \qquad $r^2 = \mathbf{0.93}$
+\end{block}
+
+\flushleft
+\vspace{0.3em}
+Every residual is below the seed SD of $0.0079$. \textbf{The metric the field selects tokens by
+predicts accuracy backwards} --- tightly enough, over this range, to be a law.
+
+\end{frame}
+
+% ---------------------------------------------------------------- 8
+\begin{frame}{Table 6 --- the floor: training on the tokens that carry \emph{no} loss}
+
+\aside{\texttt{rkl\_min}: per rollout, keep the $\alpha n$ tokens with the \emph{smallest}
+$D_t=\mathrm{KL}(\text{student}\,\|\,\text{teacher})$ --- the trainer's own loss. Budget-matched
+to \texttt{math\_only}. This is the oracle floor of the mass axis; it needs both models' full
+projections, so it is a diagnostic, never a method.}
+
+\vspace{0.7em}
+\centering
+{\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{arm} & \textbf{mass/token} & \textbf{MATH500} & $\boldsymbol{\Delta}$ \textbf{vs} \texttt{rkl\_min} & $\boldsymbol{p}$ \\
+\midrule
+\texttt{math\_only}   & 0.55  & \up{0.7580 $\pm$ 0.0120} & $-0.0152$ & 0.149 \\
+\texttt{rkl\_min}     & \dn{0.025} & \textbf{0.7428 $\pm$ 0.0067} & --- & --- \\
+\texttt{vanilla}      & 1.00  & 0.7363 $\pm$ 0.0090 & $+0.0065$ & 0.376 \\
+\texttt{random} @0.64 & 0.86  & 0.7337 $\pm$ 0.0081 & $+0.0092$ & 0.207 \\
+\bottomrule
+\end{tabular}}
+
+\flushleft
+\vspace{0.8em}
+\textbf{It captures 1.6\% of the divergence, trains at a loss of $0.0006$ against
+\texttt{vanilla}'s ${\sim}0.25$ --- roughly $400\times$ smaller --- and still edges out
+full-token OPD.} All three contrasts are null at 3 seeds; the finding is that it works at all.
+
+\medskip
+\textbf{It also breaks the law.} The fit predicts $0.7732$; observed $0.7428$, residual
+\dn{$-0.0304$} against $\pm0.007$ everywhere else. Refitting drops $r^2$ from $0.93$ to
+$\mathbf{0.70}$. \textbf{The optimum is interior} --- near $0.55$, not at the floor.
+
+\medskip
+\aside{Adam's update is invariant to a global rescaling of the loss, so the collapsed loss scale
+does not act as a reduced learning rate. We predicted it would. It did not.}
+
+\end{frame}
+
+\begin{frame}{Table 7 --- mass/token at a \emph{single} fixed budget}
 
 The obvious objection to Table 2 is that its three arms differ in \emph{budget} as well as
 selection, so the reversal could be an artifact of how many tokens each one trains on.
@@ -332,7 +404,7 @@ close this table.}
 \end{frame}
 
 % ---------------------------------------------------------------- 7
-\begin{frame}{Table 6 --- \texttt{math\_only} vs \texttt{vanilla} across learning rates}
+\begin{frame}{Table 8 --- \texttt{math\_only} vs \texttt{vanilla} across learning rates}
 
 \aside{18 runs: 2 arms $\times$ 3 learning rates $\times$ 3 seeds. 120 steps, constant LR.
 Train DAPO-Math-17K (en). Eval MATH500 $\times4$. Welch $t$ on seed means.}
@@ -373,7 +445,7 @@ does not rescue the arm: the selection effect is itself rate-dependent.
 \end{frame}
 
 % ---------------------------------------------------------------- 8
-\begin{frame}{Table 7 --- the compute claim}
+\begin{frame}{Table 9 --- the compute claim}
 
 The teacher pass is two computations; the claim turns on separating them.
 
@@ -415,9 +487,14 @@ masked projection, so this saving sits in the \emph{baseline} trainer.}
 \begin{frame}{Conclusion}
 
 \begin{enumerate}
-  \item \textbf{Gradient-mass coverage anti-predicts accuracy.} Across three arms spanning
-        0.55--1.77 mass/token, the accuracy ordering is exactly reversed
-        ($p=0.022$ between the extremes).
+  \item \textbf{Gradient-mass coverage anti-predicts accuracy, as a law.} Over
+        mass/token $0.55$--$1.77$, five arms at three different budgets fit
+        $\text{acc}=0.7742-0.0395\,m$ with $r^2=0.93$, every residual under the seed SD.
+        The slope is \dn{negative}.
+  \item \textbf{The loss itself is nearly dispensable.} A mask keeping the tokens with the
+        \emph{lowest} divergence captures 1.6\% of it, trains at ${\sim}400\times$ smaller loss,
+        and still edges out full-token OPD. It also breaks the law ($r^2$ $0.93\to0.70$), so the
+        optimum is interior, not at the floor.
   \item The metric would have selected \texttt{text\_only} --- which does not beat the
         untrained student ($p=0.570$).
   \item \textbf{Why, most likely:} high divergence marks \emph{arbitrariness} as readily as
@@ -443,7 +520,7 @@ masked projection, so this saving sits in the \emph{baseline} trainer.}
 \small
 One teacher--student pair (4.02\,B$\rightarrow$2.03\,B), one training set, one benchmark
 carrying the result. \texttt{kl} and \texttt{entropy} are built and budget-matched but never
-trained to completion, so the top row of Table 5 is empty. Three seeds is fragile: one added
+trained to completion, so the top row of Table 7 is empty. Three seeds is fragile: one added
 seed moved a $p$ from 0.040 to 0.072, and the $p=0.052$ at 1e-5 sits on the wrong side of the
 usual threshold. \textbf{Two learning rates is not a curve} --- the selection effect may peak
 between them, or be specific to 1e-5.

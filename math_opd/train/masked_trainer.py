@@ -68,7 +68,14 @@ class MaskedDistillationTrainer(DistillationTrainer):
         self.normalize_by_selected = self.args.normalize_by_selected
 
     def _selection_scores(self, inputs: dict) -> torch.Tensor:
-        """Per-token student entropy (`entropy`) or teacher-student KL (`kl`).
+        """Per-token selection score, higher meaning "select me first".
+
+        `entropy` is student entropy; `kl` is KL(teacher || student). `rkl_min`
+        and `rkl_max` score on KL(student || teacher) -- the trainer's own
+        per-token loss at `beta=1`, so they select on exactly the quantity
+        `gradient_mass_coverage` is defined over rather than a proxy for it.
+        `rkl_min` returns it negated, which turns the shared top-k budget match
+        into a bottom-k one: the alpha*T tokens contributing *least* to the loss.
 
         Deliberately a separate no-grad pass. Folding it into the training
         forward would hide the cost these baselines incur and that the lexical
@@ -87,7 +94,7 @@ class MaskedDistillationTrainer(DistillationTrainer):
         with torch.no_grad():
             hidden = self._get_last_hidden_state(student, input_ids, attention_mask, logits_to_keep)
             head = student.get_output_embeddings()
-            if self.arm == "kl":
+            if self.arm != "entropy":
                 self.teacher_model.eval()
                 teacher = self.accelerator.unwrap_model(self.teacher_model)
                 t_hidden = self._get_last_hidden_state(teacher, input_ids, attention_mask, logits_to_keep)
@@ -99,11 +106,16 @@ class MaskedDistillationTrainer(DistillationTrainer):
                 s_logp = torch.log_softmax(head(hidden[:, sl]).float(), dim=-1)
                 if self.arm == "entropy":
                     scores[:, sl] = -(s_logp.exp() * s_logp).sum(-1)
-                else:
+                    continue
+                t_logp = torch.log_softmax(t_head(t_hidden[:, sl]).float(), dim=-1)
+                if self.arm == "kl":
                     # KL(teacher || student), matching `token_kl` in baselines.py.
-                    t_logp = torch.log_softmax(t_head(t_hidden[:, sl]).float(), dim=-1)
                     scores[:, sl] = (t_logp.exp() * (t_logp - s_logp)).sum(-1)
-        return scores
+                else:
+                    # KL(student || teacher): the per-token loss the trainer
+                    # reduces, mirroring `_chunk`'s beta==1 branch.
+                    scores[:, sl] = (s_logp.exp() * (s_logp - t_logp)).sum(-1)
+        return -scores if self.arm == "rkl_min" else scores
 
     def _arm_mask(self, inputs: dict) -> torch.Tensor | None:
         """The arm's `(B, T)` mask over completion tokens, or None for vanilla."""
