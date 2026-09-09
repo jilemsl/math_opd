@@ -13,6 +13,68 @@ identically (lr 1e-5, 120 steps, 3 seeds) on MATH500:
 v0c vs v0: −0.051, p=0.022. v0c vs untrained: p=0.570. Ranked by mass the order is
 v0c > plain > v0; by accuracy it is exactly reversed. See `results/mass_vs_accuracy.json`.
 
+## 0b. Matched-budget control: the budget is free, the selection is the effect
+
+`results/retention_sweep.json`. A **flat-rate random mask at rate r** gives gradient to
+`round(r·n)` of each rollout's `n` completion tokens, drawn uniformly without replacement and
+redrawn every optimizer step — so it holds the *budget* fixed while making the *selection*
+uninformative. Measured retention over 120 steps: 0.6399 against a 0.64 target.
+
+lr 1e-5 constant, 120 steps, 32 rollouts/step, 3 seeds, MATH500 ×4.
+
+### The budget axis: swept 0.20 → 1.00, nothing happens
+
+Uniform random selection at each rate, so only the budget varies.
+
+| retention | MATH500 | seeds | vs vanilla@1.00 | p |
+|---|---|---|---|---|
+| 0.20 | 0.7348 ± 0.0053 | 2 | −0.0016 | 0.821 |
+| 0.41 | 0.7220 ± 0.0031 | 3 | −0.0143 | 0.098 |
+| 0.64 | 0.7337 ± 0.0081 | 3 | −0.0027 | 0.722 |
+| 0.85 | 0.7348 ± 0.0088 | 2 | −0.0016 | 0.861 |
+| 1.00 | 0.7363 ± 0.0090 | 3 | — | — |
+
+Total span **0.0143** across a 5× range of budget, against a seed SD of ~0.008, and
+non-monotone — 0.20 sits above 0.41. No cell is significantly below full-token OPD. **How many
+tokens carry gradient does not measurably matter.** Four fifths of the completion can be
+dropped at random for free.
+
+### The selection axis: same budget, different tokens
+
+| budget | lexical mask | mass/token, lexical vs random | Δ vs random | p |
+|---|---|---|---|---|
+| 0.64 | math_only | 0.55 vs 0.86 | **+0.0243** | **0.052** |
+| 0.41 | text_only | 1.77 vs 1.24 | −0.0148 | 0.345 |
+
+| arm | retention | mass/token | MATH500 |
+|---|---|---|---|
+| v0 / math_only | 0.638 | 0.55 | **0.7580 ± 0.0120** |
+| random @0.64 | 0.640 | 0.86 | 0.7337 ± 0.0081 |
+| vanilla | 1.000 | 1.00 | 0.7363 ± 0.0090 |
+| untrained | — | — | 0.6990 |
+
+Against vanilla the decomposition is exact:
+math_only − vanilla = (math_only − random@0.64) + (random@0.64 − vanilla)
+= +0.0243 + (−0.0027) = +0.0216.
+
+**Selection is the only axis here that moves accuracy, and it moves opposite to gradient-mass
+coverage**: the lower-divergence selection beats random, the higher-divergence one loses to it.
+The text_only contrast is directionally consistent but not significant on its own (its SD is
+0.021 — one seed came in at 0.683).
+
+In context: OPD buys +0.059 over the untrained student. A budget-matched random mask captures
++0.035 of that; math_only captures all of it. The regex recovers the ~41% an uninformative
+selection leaves on the table — while capturing *less* divergence than the mask it beats.
+
+This also removes the obvious objection to §0, where the three arms differed in budget as well
+as selection. Here budget is held fixed and the lower-mass selection still wins: the metric
+anti-predicts **within** a matched budget.
+
+**Caveat.** One learning rate. The math_only-vs-vanilla contrast changed sign across rates
+(−0.0088 at 3e-6, +0.0217 at 1e-5), but that contrast confounds budget with selection; the
+matched-budget contrast has not been run at a second rate. p=0.052 is marginal, though the
+effect clears the 3-seed minimum detectable difference of 0.018.
+
 ## 1. Headline: v0 vs vanilla — 18 runs, 3 seeds per cell
 
 Statistics at the **seed** level (Welch t on seed means). MATH500, mean ± SD over 3 seeds.
@@ -83,6 +145,9 @@ A ratio of 1.0 is neutral. Every lexical mask is well below it and budget-matche
 random beats them all. This predicted v0 would *underperform* vanilla. **It did
 not** — v0 wins at two of three rates. So gradient-mass coverage is not what
 determines the outcome here, and the paper should not lead with it as the mechanism.
+§0b sharpens this: at a *single* fixed budget of 0.64, v0 (mass/token 0.55) beats the
+budget-matched random mask (0.86) by +0.024, so the metric anti-predicts within a matched
+budget, not only across arms spending different amounts.
 
 A partial replacement: v0 inflates less than vanilla (clip 0.438 vs 0.544 at 3e-6,
 0.569 vs 0.584 at 1e-5), and accuracy falls as inflation rises. Withholding
@@ -173,7 +238,11 @@ does not grow with difficulty.
 
 ## What is not done
 
-- **Three seeds.** Everything above is one seed. The two significant results (p=0.001, 0.002) need replication.
-- **Six of eight arms untested for accuracy.** `v1`, `v0ms`, `v2`, `random`, `entropy`, `kl` all run and are budget-matched, but only `vanilla` and `v0` have been trained to completion and evaluated.
+- **Three arms untested for accuracy.** `v1`, `v0ms`, `v2` and the budget-matched
+  `entropy` / `kl` selectors all run and are budget-matched, but were never trained
+  to completion. Only `vanilla`, `v0`, `v0c` and flat-rate `random` have accuracy numbers.
 - **OlympiadBench and HMMT** are wired into the harness but not run.
 - **`v1`'s trailing-delimiter leak** (0.93% of v1) is documented, not fixed — closing it changes what the arm means.
+- **One model pair, one training set.** Qwen3-4B-Instruct-2507 (4.02 B) → Qwen3-1.7B
+  (2.03 B) on DAPO-Math-17K (en); MATH500 is the only benchmark that resolves the
+  effect sizes involved.
