@@ -1,0 +1,78 @@
+{
+ "design": "math_only vs vanilla, both lr 1e-5 constant, 120 steps, 3 training seeds each; AIME 24/25/26, 30 problems x 32 samples, eval seed 0 fixed so cells differ only by training seed.",
+ "base_untrained": {
+  "aime24": 0.1073,
+  "aime25": 0.0854,
+  "aime26": 0.074
+ },
+ "years": {
+  "aime24": {
+   "vanilla": {
+    "mean": 0.1688,
+    "sd": 0.0053,
+    "seeds": [
+     0.174,
+     0.1688,
+     0.1635
+    ]
+   },
+   "math_only": {
+    "mean": 0.1754,
+    "sd": 0.0075,
+    "seeds": [
+     0.1792,
+     0.1802,
+     0.1667
+    ]
+   },
+   "delta": 0.0066,
+   "p": 0.2881
+  },
+  "aime25": {
+   "vanilla": {
+    "mean": 0.1774,
+    "sd": 0.0069,
+    "seeds": [
+     0.1854,
+     0.174,
+     0.1729
+    ]
+   },
+   "math_only": {
+    "mean": 0.1732,
+    "sd": 0.0084,
+    "seeds": [
+     0.1635,
+     0.1781,
+     0.1781
+    ]
+   },
+   "delta": -0.0042,
+   "p": 0.5426
+  },
+  "aime26": {
+   "vanilla": {
+    "mean": 0.1455,
+    "sd": 0.0044,
+    "seeds": [
+     0.149,
+     0.1469,
+     0.1406
+    ]
+   },
+   "math_only": {
+    "mean": 0.1472,
+    "sd": 0.0102,
+    "seeds": [
+     0.1531,
+     0.1531,
+     0.1354
+    ]
+   },
+   "delta": 0.0017,
+   "p": 0.8099
+  }
+ },
+ "power_note": "RESULTS section 6 previously called AIME underpowered on the basis of a +-0.10 binomial CI. That is the CI on ONE model's absolute accuracy over 30 problems, which is the wrong statistic for a contrast: both arms are scored on the same 30 problems, so problem difficulty is common to both and cancels. The limiting quantity is the training-seed SD, measured here at 0.004-0.011, giving a 3-seed minimum detectable difference near 0.03 -- wider than MATH500's 0.018 but far tighter than 0.10.",
+ "finding": "Null on all three years, signs inconsistent, every |delta| at or below 0.008. Training lifts AIME well clear of the untrained student (0.107 -> ~0.17 on AIME24), but the MATH500 math_only-vs-vanilla advantage at 1e-5 (+0.0217) does not transfer to AIME. Consistent with the 3e-6 control: the mask recovers ground lost to an over-large learning rate rather than adding a transferable gain."
+}

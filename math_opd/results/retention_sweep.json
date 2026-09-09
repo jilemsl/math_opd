@@ -151,5 +151,45 @@
  },
  "finding": "Two axes, measured separately at lr 1e-5 on MATH500. BUDGET (how many completion tokens receive gradient), swept with a uniform random mask from 0.20 to 1.00: total span 0.0143 against a seed SD of ~0.008, non-monotone, no cell significantly below full-token OPD. The budget does not matter anywhere in that 5x range. SELECTION (which tokens), measured against a uniform draw at the same budget: math_only +0.0243 (p=0.052), text_only -0.0148 (p=0.345). Selection is the only axis in this experiment that moves accuracy, and it moves it opposite to gradient-mass coverage -- the lower-divergence selection beats random, the higher-divergence one loses to it.",
  "effect_size_in_context": "OPD at this scale buys +0.059 over the untrained student (0.6990 -> 0.7580). A budget-matched uniform random mask captures +0.035 of that; math_only captures all of it. So the regex recovers the ~41% of OPD's benefit that an uninformative selection leaves on the table, while capturing LESS teacher-student divergence than the random mask it beats.",
- "caveat": "One learning rate (1e-5). The math_only-vs-vanilla contrast changed sign across learning rates (-0.0088 at 3e-6, +0.0217 at 1e-5), but that contrast confounds budget with selection; the matched-budget contrast has not yet been run at a second rate. p=0.052 with 3 seeds per cell is marginal, though the effect clears the 3-seed minimum detectable difference of 0.018. random@0.20 and random@0.85 have 2 seeds, not 3."
+ "caveat": "The selection effect is learning-rate dependent -- measured directly, not inferred: +0.0243 (p=0.052) at 1e-5 and -0.0058 (p=0.173) at 3e-6, both matched-budget, 3 seeds each. The budget result is rate-robust; the selection result is not. random@0.20 and random@0.85 have 2 seeds, not 3.",
+ "lr_3e-6_control": {
+  "cells": {
+   "math_only": {
+    "mean": 0.7492,
+    "sd": 0.0045,
+    "seeds": [
+     0.7495,
+     0.7535,
+     0.7445
+    ]
+   },
+   "random@0.64": {
+    "mean": 0.755,
+    "sd": 0.0041,
+    "seeds": [
+     0.7505,
+     0.756,
+     0.7585
+    ]
+   },
+   "vanilla": {
+    "mean": 0.758,
+    "sd": 0.0079,
+    "seeds": [
+     0.7565,
+     0.7665,
+     0.751
+    ]
+   }
+  },
+  "selection_effect": {
+   "delta": -0.0058,
+   "p": 0.1731
+  },
+  "budget_effect": {
+   "delta": -0.003,
+   "p": 0.5986
+  },
+  "finding": "The matched-budget control re-run at 3e-6. The BUDGET effect replicates and stays zero (-0.0030, p=0.599, against -0.0027, p=0.722 at 1e-5). The SELECTION effect does NOT: +0.0243 at 1e-5 becomes -0.0058 at 3e-6. Selection matters only at the higher rate, where vanilla has degraded from 0.7580 to 0.7363; the mask recovers exactly that lost ground and no more. Every arm at either rate tops out at 0.758, so the mask repairs damage from an over-large learning rate rather than adding anything a well-tuned baseline lacks."
+ }
 }
