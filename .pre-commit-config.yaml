@@ -9,7 +9,7 @@ repos:
         types_or: [ python, pyi ]
 
   - repo: https://github.com/huggingface/doc-builder
-    rev: 1b16dac5e33043af565fdf4c1b5b0fe81d0891c8  # main
+    rev: 6f0962e04218e46b8117ac5990789cccebb647d8  # main
     hooks:
       - id: doc-builder-style
         args: [--max_len, "119"]
